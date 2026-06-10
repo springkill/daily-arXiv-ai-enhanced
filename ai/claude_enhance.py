@@ -25,6 +25,7 @@ import shutil
 import subprocess
 import sys
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # --------------------------------------------------------------------------- #
@@ -42,7 +43,8 @@ PREFILTER_BATCH     = int(os.environ.get("PREFILTER_BATCH", "12"))
 PREFILTER_WORKERS   = int(os.environ.get("PREFILTER_WORKERS", "4"))
 DEEP_WORKERS        = int(os.environ.get("DEEP_WORKERS", "3"))
 CALL_TIMEOUT        = int(os.environ.get("CLAUDE_CALL_TIMEOUT", "240"))
-CALL_RETRIES        = int(os.environ.get("CLAUDE_CALL_RETRIES", "2"))
+CALL_RETRIES        = int(os.environ.get("CLAUDE_CALL_RETRIES", "3"))
+RETRY_BACKOFF       = int(os.environ.get("CLAUDE_RETRY_BACKOFF", "8"))  # 秒,退避以熬过 claude 自动更新窗口
 LANGUAGE            = os.environ.get("LANGUAGE", "Chinese")
 RESEARCH_FOCUS_FILE = os.environ.get("RESEARCH_FOCUS_FILE", os.path.join(HERE, "research_focus.txt"))
 
@@ -78,19 +80,29 @@ def _strip_fence(text: str) -> str:
     return t.strip()
 
 
+def _resolve_bin() -> str:
+    """调用时解析 claude 二进制:若配置路径不存在(如刚好被自动更新换掉),回退 which。"""
+    if os.path.exists(CLAUDE_BIN):
+        return CLAUDE_BIN
+    return shutil.which("claude") or CLAUDE_BIN
+
+
 def _run_once(prompt: str, model: str) -> str:
     """跑一次 headless claude,返回模型输出的原始文本(Claude Code 的 JSON 信封很可靠,
     我们只信任它取出内层 result)。失败抛异常。"""
     global _total_cost, _call_count
     args = [
-        CLAUDE_BIN, "-p", prompt,
+        _resolve_bin(), "-p", prompt,
         "--output-format", "json",
         "--model", model,
         "--setting-sources", "",            # 不加载任何 settings(砍掉插件/skill 开销)
         "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}',  # 不加载任何 MCP
     ]
+    # 关键:禁用 claude 自动更新,避免长时间批量运行中途换掉二进制导致 FileNotFoundError
+    env = {**os.environ, "DISABLE_AUTOUPDATER": "1",
+           "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"}
     p = subprocess.run(
-        args, capture_output=True, text=True,
+        args, capture_output=True, text=True, env=env,
         stdin=subprocess.DEVNULL, cwd=HERE, timeout=CALL_TIMEOUT,
     )
     if p.returncode != 0:
@@ -107,11 +119,13 @@ def _run_once(prompt: str, model: str) -> str:
 def claude_json(prompt: str, model: str):
     """返回解析后的 JSON 对象/数组(短结构化字段用);失败返回 None。解析失败会重试。"""
     last_err = ""
-    for _ in range(CALL_RETRIES + 1):
+    for attempt in range(CALL_RETRIES + 1):
         try:
             return json.loads(_strip_fence(_run_once(prompt, model)))
         except Exception as e:  # noqa
             last_err = f"{type(e).__name__}: {e}"
+            if attempt < CALL_RETRIES:
+                time.sleep(RETRY_BACKOFF * (attempt + 1))
     log(f"  ⚠️ claude(JSON) 调用失败({model}, {CALL_RETRIES + 1} 次): {last_err}")
     return None
 
@@ -119,11 +133,13 @@ def claude_json(prompt: str, model: str):
 def claude_text(prompt: str, model: str):
     """返回模型原始文本(长文本用,避免 JSON 转义问题);失败返回 None。"""
     last_err = ""
-    for _ in range(CALL_RETRIES + 1):
+    for attempt in range(CALL_RETRIES + 1):
         try:
             return _run_once(prompt, model)
         except Exception as e:  # noqa
             last_err = f"{type(e).__name__}: {e}"
+            if attempt < CALL_RETRIES:
+                time.sleep(RETRY_BACKOFF * (attempt + 1))
     log(f"  ⚠️ claude(text) 调用失败({model}, {CALL_RETRIES + 1} 次): {last_err}")
     return None
 

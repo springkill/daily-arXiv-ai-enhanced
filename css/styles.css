@@ -730,6 +730,21 @@ main {
   border: 1px solid var(--border-accent);
 }
 
+/* AI 相关性徽章(自托管打分排序)*/
+.relevance-badge {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.relevance-badge.rel-high { background-color: #16a34a; color: #fff; }
+.relevance-badge.rel-mid  { background-color: #d97706; color: #fff; }
+.relevance-badge.rel-low  { background-color: var(--background-hover); color: var(--text-secondary); border: 1px solid var(--border-accent); }
+
 .paper-card-body {
   padding: 20px;
   flex-grow: 1;

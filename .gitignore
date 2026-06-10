@@ -1,3 +1,10 @@
+# Self-hosted local config & generated data
+.env.local
+/data/*.jsonl
+/data/*.md
+/assets/file-list.txt
+*.log
+
 # Python-generated files
 __pycache__/
 *.py[oc]

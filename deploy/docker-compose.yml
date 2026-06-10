@@ -1,0 +1,17 @@
+# 自托管前端容器:由现有的 nginx-gateway 反代 arxiv.example.com → 此容器
+# 仅托管静态站点 + 本机每日生成的 data/。不暴露宿主端口,只在 gateway 网络内部可达。
+services:
+  web:
+    image: nginx:1.27-alpine
+    container_name: daily-arxiv-web
+    restart: unless-stopped
+    volumes:
+      # 整个仓库作为站点根(只读);data/ 与 assets/ 由宿主流水线写入,实时可见
+      - ../:/usr/share/nginx/html:ro
+      - ./web.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - gateway
+
+networks:
+  gateway:
+    external: true

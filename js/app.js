@@ -900,6 +900,16 @@ async function loadPapersByDate(date) {
   }
 }
 
+// 转义用于 HTML 属性/文本的字符串(防止 topic/reason 里的特殊字符破坏标签)
+function escapeHtmlAttr(str) {
+  return String(str == null ? '' : str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function parseJsonlData(jsonlText, date) {
   const result = {};
   
@@ -938,7 +948,11 @@ function parseJsonlData(jsonlText, date) {
         conclusion: paper.AI && paper.AI.conclusion ? paper.AI.conclusion : '',
         code_url: paper.code_url || '',
         code_stars: paper.code_stars || 0,
-        code_last_update: paper.code_last_update || ''
+        code_last_update: paper.code_last_update || '',
+        relevance_score: typeof paper.relevance_score === 'number' ? paper.relevance_score : null,
+        topic: paper.topic || '',
+        relevance_reason: paper.relevance_reason || '',
+        deep: paper.deep === true
       });
     } catch (error) {
       console.error('解析JSON行失败:', error, line);
@@ -1119,6 +1133,15 @@ function renderPapers() {
   
   // 创建匹配论文的集合
   let filteredPapers = [...papers];
+
+  // 基础排序：默认按 AI 相关性分数降序(自托管的核心排序)。
+  // 后续的关键词/作者/文本排序对 tie 返回 0,JS 稳定排序会在各分组内
+  // 保住这里的相关性次序,因此相关性成为全局的次级排序键。
+  filteredPapers.sort((a, b) => {
+    const sa = (typeof a.relevance_score === 'number') ? a.relevance_score : -1;
+    const sb = (typeof b.relevance_score === 'number') ? b.relevance_score : -1;
+    return sb - sa;
+  });
 
   // 重置所有论文的匹配状态，避免上次渲染的残留
   filteredPapers.forEach(p => {
@@ -1405,6 +1428,17 @@ function renderPapers() {
     //   `;
     // }
 
+    // 相关性徽章(自托管 AI 打分):分数 + 主题,颜色随分数深浅
+    let relevanceBadge = '';
+    if (typeof paper.relevance_score === 'number') {
+      const s = paper.relevance_score;
+      const cls = s >= 8 ? 'rel-high' : (s >= 6 ? 'rel-mid' : 'rel-low');
+      const deepMark = paper.deep ? ' ★' : '';
+      const topic = paper.topic ? ` · ${escapeHtmlAttr(paper.topic)}` : '';
+      const title = paper.relevance_reason ? escapeHtmlAttr(paper.relevance_reason) : '相关性评分';
+      relevanceBadge = `<span class="relevance-badge ${cls}" title="${title}">相关 ${s}/10${deepMark}${topic}</span>`;
+    }
+
     paperCard.innerHTML = `
       <div class="paper-card-index">${index + 1}</div>
       ${paper.isMatched ? '<div class="match-badge" title="匹配您的搜索条件"></div>' : ''}
@@ -1412,6 +1446,7 @@ function renderPapers() {
         <h3 class="paper-card-title">${highlightedTitle}</h3>
         <p class="paper-card-authors">${formattedAuthors}</p>
         <div class="paper-card-categories">
+          ${relevanceBadge}
           ${categoryTags}
         </div>
       </div>

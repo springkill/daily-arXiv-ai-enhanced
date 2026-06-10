@@ -33,6 +33,13 @@ const inferredRepo = inferRepoInfo();
 const DEFAULT_REPO_OWNER = 'dw-dengwei';
 const DEFAULT_REPO_NAME = 'daily-arXiv-ai-enhanced';
 
+/**
+ * 自托管模式开关。
+ * true  -> 数据从本站同源 (/data, /assets) 读取,由本机 nginx 直接提供,不再走 GitHub。
+ * false -> 原行为:从 raw.githubusercontent.com 的 data 分支读取。
+ */
+const SELF_HOSTED = true;
+
 const DATA_CONFIG = {
     /**
      * GitHub repository owner (username)
@@ -57,6 +64,10 @@ const DATA_CONFIG = {
      * @returns {string} Base URL for raw GitHub content
      */
     getDataBaseUrl: function() {
+        // 自托管:同源根路径,数据由本机 nginx 从 ./data、./assets 提供
+        if (typeof SELF_HOSTED !== 'undefined' && SELF_HOSTED) {
+            return '';
+        }
         return `https://raw.githubusercontent.com/${this.repoOwner}/${this.repoName}/${this.dataBranch}`;
     },
 

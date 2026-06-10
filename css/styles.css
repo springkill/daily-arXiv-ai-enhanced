@@ -2401,17 +2401,24 @@ footer {
 /* =========================================================================
    手机浏览器优化(is-mobile 由 js/mobile.js 加在 <html> 上)
    ========================================================================= */
-/* 安全区(刘海屏)*/
-.is-mobile body { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+/* 防止任何元素把整页撑宽导致左右滑动(关键修复)*/
+.is-mobile,
+.is-mobile body { max-width: 100%; overflow-x: hidden; }
+.is-mobile body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
 
 /* 自托管下数据源切换无意义 —— 手机上隐藏,腾出顶栏空间 */
 .is-mobile .data-source-toggle { display: none !important; }
 
-/* 顶栏更紧凑:标题不折行、logo 缩小 */
+/* 顶栏更紧凑:标题正常换行(不能 nowrap,否则 flex 容器 min-content 撑宽整页)、logo 缩小 */
 .is-mobile header { position: sticky; top: 0; z-index: 50; }
-.is-mobile .header-content { gap: 8px; padding-left: 12px; padding-right: 12px; }
-.is-mobile .header-content h1 { font-size: 16px; line-height: 1.2; white-space: nowrap; }
+.is-mobile .header-content { gap: 8px; padding-left: 12px; padding-right: 12px; flex-wrap: wrap; }
+.is-mobile .header-content h1 { font-size: 16px; line-height: 1.2; }
 .is-mobile .logo-image { width: 34px; height: 34px; }
+
+/* 长标题/作者/URL 允许断行,绝不溢出卡片 */
+.is-mobile .paper-card-title,
+.is-mobile .paper-card-authors,
+.is-mobile .paper-card-summary { overflow-wrap: anywhere; word-break: break-word; }
 
 /* 加大可点区域,手指友好 */
 .is-mobile .category-tag,

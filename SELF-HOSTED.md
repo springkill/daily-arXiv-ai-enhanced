@@ -70,6 +70,14 @@ cd ai && python claude_enhance.py --data ../data/<日期>.jsonl
 
 - 重启前端容器:`cd deploy && docker compose restart`
 - 更新前端代码后:`cd deploy && docker compose up -d`
+- **改了 `deploy/web.conf` 后**:必须 `cd deploy && docker compose up -d --force-recreate`
+  (单文件挂载有 inode 陷阱,改文件后容器还绑旧 inode,普通 reload 看不到改动)
+
+## 移动端 / 手机
+
+- 页面已响应式 + 手机识别(`js/mobile.js` 给 `<html>` 加 `is-mobile`,手机上隐藏数据源切换、精简顶栏)。
+- 支持"添加到主屏"(PWA `manifest.webmanifest`):iOS Safari 分享→添加到主屏幕,Android Chrome 菜单→安装/添加到主屏,
+  之后像 App 一样全屏打开。改图标:换 `assets/logo.png`。
 - 网关重载(仅改 conf):`docker exec nginx-gateway nginx -t && docker exec nginx-gateway nginx -s reload`
 - **Claude token 过期**:cron 里 headless claude 依赖 `~/.claude/.credentials.json`。若预检失败,
   在交互式 `claude` 里重新登录即可;`run-local.sh` 步骤0 会在过期时直接报错中止,不会空跑。

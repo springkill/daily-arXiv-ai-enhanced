@@ -1,0 +1,16 @@
+{
+  "name": "Daily arXiv AI Enhanced",
+  "short_name": "arXiv AI",
+  "description": "每日 arXiv 论文 AI 总结与相关性排序",
+  "lang": "zh-CN",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f5f6fb",
+  "theme_color": "#5b5bd6",
+  "icons": [
+    { "src": "assets/logo.png", "sizes": "594x594", "type": "image/png", "purpose": "any" },
+    { "src": "assets/logo.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

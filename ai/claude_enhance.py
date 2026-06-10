@@ -4,12 +4,13 @@
 Two-stage AI enhancement powered by the local headless Claude Code CLI.
 
 流程 / Pipeline:
-  Stage 1 (prefilter, cheap model, batched):
-      对全部论文逐篇打"相关性分 0-10" + topic + 一句话 reason/tldr。
+  Stage 1 (analyze, cheap model, batched):
+      对【全部】论文打"相关性分 0-10" + topic + reason,并生成完整五段总结
+      (tldr/motivation/method/result/conclusion)。所以每篇都有丰富内容。
   Stage 2 (deep, strong model, per paper):
-      只对 relevance_score >= RELEVANCE_THRESHOLD 且当天 Top-DEEP_TOP_K 的论文,
-      生成 tldr/motivation/method/result/conclusion 五段深度总结。
-  其余论文保留 Stage 1 的分数 + 一句话 tldr(AI 其它字段留空)。
+      对 relevance_score >= RELEVANCE_THRESHOLD 且当天 Top-DEEP_TOP_K 的论文,
+      用强模型(Opus)重新生成五段,覆盖 Stage 1 的版本 → 顶部相关论文为最佳质量。
+  全部用分隔标记(@@MARK@@)而非 JSON 解析,长段中文含引号/反斜杠/LaTeX 也不会出错。
 
 输出 / Output: <data>_AI_enhanced_<LANGUAGE>.jsonl,按 relevance_score 降序排列,
 与前端 (js/app.js) 和 to_md/convert.py 兼容(保留 item['AI'] 的五个字段)。
@@ -77,8 +78,9 @@ def _strip_fence(text: str) -> str:
     return t.strip()
 
 
-def claude_json(prompt: str, model: str):
-    """调用 headless claude,返回解析后的 JSON 对象/数组;失败返回 None。"""
+def _run_once(prompt: str, model: str) -> str:
+    """跑一次 headless claude,返回模型输出的原始文本(Claude Code 的 JSON 信封很可靠,
+    我们只信任它取出内层 result)。失败抛异常。"""
     global _total_cost, _call_count
     args = [
         CLAUDE_BIN, "-p", prompt,
@@ -87,88 +89,155 @@ def claude_json(prompt: str, model: str):
         "--setting-sources", "",            # 不加载任何 settings(砍掉插件/skill 开销)
         "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}',  # 不加载任何 MCP
     ]
+    p = subprocess.run(
+        args, capture_output=True, text=True,
+        stdin=subprocess.DEVNULL, cwd=HERE, timeout=CALL_TIMEOUT,
+    )
+    if p.returncode != 0:
+        raise RuntimeError(f"rc={p.returncode} stderr={p.stderr[-200:]}")
+    outer = json.loads(p.stdout)
+    if outer.get("is_error"):
+        raise RuntimeError(f"is_error subtype={outer.get('subtype')}")
+    with _cost_lock:
+        _total_cost += float(outer.get("total_cost_usd") or 0.0)
+        _call_count += 1
+    return outer.get("result", "")
+
+
+def claude_json(prompt: str, model: str):
+    """返回解析后的 JSON 对象/数组(短结构化字段用);失败返回 None。解析失败会重试。"""
     last_err = ""
-    for attempt in range(CALL_RETRIES + 1):
+    for _ in range(CALL_RETRIES + 1):
         try:
-            p = subprocess.run(
-                args, capture_output=True, text=True,
-                stdin=subprocess.DEVNULL, cwd=HERE, timeout=CALL_TIMEOUT,
-            )
-            if p.returncode != 0:
-                last_err = f"rc={p.returncode} stderr={p.stderr[-200:]}"
-                continue
-            outer = json.loads(p.stdout)
-            if outer.get("is_error"):
-                last_err = f"is_error subtype={outer.get('subtype')}"
-                continue
-            with _cost_lock:
-                _total_cost += float(outer.get("total_cost_usd") or 0.0)
-                _call_count += 1
-            payload = _strip_fence(outer.get("result", ""))
-            return json.loads(payload)
-        except subprocess.TimeoutExpired:
-            last_err = f"timeout>{CALL_TIMEOUT}s"
-        except json.JSONDecodeError as e:
-            last_err = f"json decode: {e}"
+            return json.loads(_strip_fence(_run_once(prompt, model)))
         except Exception as e:  # noqa
             last_err = f"{type(e).__name__}: {e}"
-    log(f"  ⚠️ claude 调用失败({model}, {CALL_RETRIES + 1} 次): {last_err}")
+    log(f"  ⚠️ claude(JSON) 调用失败({model}, {CALL_RETRIES + 1} 次): {last_err}")
+    return None
+
+
+def claude_text(prompt: str, model: str):
+    """返回模型原始文本(长文本用,避免 JSON 转义问题);失败返回 None。"""
+    last_err = ""
+    for _ in range(CALL_RETRIES + 1):
+        try:
+            return _run_once(prompt, model)
+        except Exception as e:  # noqa
+            last_err = f"{type(e).__name__}: {e}"
+    log(f"  ⚠️ claude(text) 调用失败({model}, {CALL_RETRIES + 1} 次): {last_err}")
     return None
 
 
 # --------------------------------------------------------------------------- #
-# Stage 1 — 相关性预筛打分 (批量, 便宜模型)
+# 通用:分隔标记解析(代替 JSON,长文本鲁棒)
 # --------------------------------------------------------------------------- #
-def prefilter_batch(focus: str, batch):
-    plist = "\n".join(
-        f'[{i}] id={p["id"]} | title: {p.get("title", "")} | abstract: {p.get("summary", "")}'
+def _parse_markers(text: str, markers):
+    """markers: [(key, '@@MARK@@'), ...] → {key: 该标记后到下一个标记前的文本}。"""
+    found = []
+    for key, m in markers:
+        idx = text.find(m)
+        if idx >= 0:
+            found.append((idx, key, m))
+    found.sort()
+    out = {}
+    for j, (idx, key, m) in enumerate(found):
+        start = idx + len(m)
+        end = found[j + 1][0] if j + 1 < len(found) else len(text)
+        out[key] = text[start:end].strip()
+    return out
+
+
+def _to_score(val) -> int:
+    m = re.search(r"-?\d+", str(val or ""))
+    if not m:
+        return 0
+    return max(0, min(10, int(m.group())))
+
+
+# --------------------------------------------------------------------------- #
+# Stage 1 — 全量分析:相关分 + 主题 + 完整五段总结 (批量, 便宜模型)
+# --------------------------------------------------------------------------- #
+_ANALYZE_FIELDS = [
+    ("score", "@@SCORE@@"), ("topic", "@@TOPIC@@"), ("reason", "@@REASON@@"),
+    ("tldr", "@@TLDR@@"), ("motivation", "@@MOTIVATION@@"),
+    ("method", "@@METHOD@@"), ("result", "@@RESULT@@"), ("conclusion", "@@CONCLUSION@@"),
+]
+
+
+def analyze_batch(focus: str, batch):
+    plist = "\n\n".join(
+        f'[{i}] title: {p.get("title", "")}\nabstract: {p.get("summary", "")}'
         for i, p in enumerate(batch)
     )
-    prompt = f"""你是一个学术论文相关性评估器。下面是我的研究关注点:
+    prompt = f"""你是一个学术论文分析助手。下面是我的研究关注点:
 
 <research_focus>
 {focus}
 </research_focus>
 
-请对每篇论文,依据 research_focus 给出 0-10 的相关性整数分(打分指引见 research_focus 末尾),
-并给出一个简短的主题标签 topic、一句话的打分理由 reason、以及一句话的论文速览 tldr。
-reason 和 tldr 用{LANGUAGE}书写。
+请对列表里的【每一篇】论文,依据 research_focus 给出:0-10 的相关性整数分(打分指引见 research_focus 末尾)、
+一个简短主题标签、一句话打分理由,以及完整的{LANGUAGE}五段总结(速览/动机/方法/结果/结论)。
 
-只输出一个 JSON 数组(不要任何 markdown 围栏、不要多余文字),每篇论文一个对象,字段如下:
-[{{"id": "论文id", "relevance_score": 整数0到10, "topic": "简短主题标签", "reason": "一句话理由", "tldr": "一句话速览"}}]
+严格按下面格式输出,每篇论文一个区块,@@标记@@ 各自独占一行、其后紧跟正文(纯文字,可多句,
+不要 markdown 列表/代码块/表格)。除这些区块外不要输出任何其它内容。`[i]` 里的序号 i 要原样填到 @@ITEM i@@。
+
+@@ITEM 0@@
+@@SCORE@@
+（0到10的整数）
+@@TOPIC@@
+（简短主题标签）
+@@REASON@@
+（一句话打分理由）
+@@TLDR@@
+（一句话速览）
+@@MOTIVATION@@
+（研究动机 / 要解决的问题）
+@@METHOD@@
+（核心方法）
+@@RESULT@@
+（主要结果）
+@@CONCLUSION@@
+（结论与意义）
+
+（下一篇用 @@ITEM 1@@ 继续,以此类推）
 
 论文列表(共 {len(batch)} 篇):
 {plist}"""
-    res = claude_json(prompt, PREFILTER_MODEL)
+    raw = claude_text(prompt, PREFILTER_MODEL)
     out = {}
-    if isinstance(res, dict):
-        # 容错:模型可能把数组包在某个 key 里
-        for v in res.values():
-            if isinstance(v, list):
-                res = v
-                break
-    if isinstance(res, list):
-        for obj in res:
-            if isinstance(obj, dict) and obj.get("id"):
-                out[str(obj["id"])] = obj
+    if not raw:
+        return out
+    parts = re.split(r"@@ITEM\s+(\d+)@@", raw)
+    # parts: [preamble, idx0, body0, idx1, body1, ...]
+    for k in range(1, len(parts), 2):
+        try:
+            i = int(parts[k])
+        except ValueError:
+            continue
+        if i < 0 or i >= len(batch):
+            continue
+        body = parts[k + 1] if k + 1 < len(parts) else ""
+        fields = _parse_markers(body, _ANALYZE_FIELDS)
+        if fields:
+            out[str(batch[i]["id"])] = fields
     return out
 
 
-def run_prefilter(focus: str, papers):
+def run_analyze(focus: str, papers):
     batches = [papers[i:i + PREFILTER_BATCH] for i in range(0, len(papers), PREFILTER_BATCH)]
-    log(f"Stage 1 预筛: {len(papers)} 篇 → {len(batches)} 批 (每批{PREFILTER_BATCH}, {PREFILTER_WORKERS}并发, 模型={PREFILTER_MODEL})")
-    scores = {}
+    log(f"Stage 1 全量分析+总结: {len(papers)} 篇 → {len(batches)} 批 (每批{PREFILTER_BATCH}, {PREFILTER_WORKERS}并发, 模型={PREFILTER_MODEL})")
+    analyzed = {}
     done = 0
     with ThreadPoolExecutor(max_workers=PREFILTER_WORKERS) as ex:
-        futs = {ex.submit(prefilter_batch, focus, b): bi for bi, b in enumerate(batches)}
+        futs = {ex.submit(analyze_batch, focus, b): bi for bi, b in enumerate(batches)}
         for fut in as_completed(futs):
             try:
-                scores.update(fut.result())
+                analyzed.update(fut.result())
             except Exception as e:
-                log(f"  预筛批次异常: {e}")
+                log(f"  分析批次异常: {e}")
             done += 1
-            log(f"  预筛进度 {done}/{len(batches)}")
-    return scores
+            log(f"  分析进度 {done}/{len(batches)}")
+    return analyzed
 
 
 # --------------------------------------------------------------------------- #
@@ -178,6 +247,20 @@ DEEP_FALLBACK = {
     "tldr": "深度总结生成失败", "motivation": "", "method": "",
     "result": "", "conclusion": "",
 }
+# 用分隔标记代替 JSON:长段中文里含引号/反斜杠/LaTeX 也不会破坏解析
+_SECTIONS = [
+    ("tldr", "@@TLDR@@"), ("motivation", "@@MOTIVATION@@"),
+    ("method", "@@METHOD@@"), ("result", "@@RESULT@@"), ("conclusion", "@@CONCLUSION@@"),
+]
+
+
+def _parse_sections(text: str):
+    out = _parse_markers(text, _SECTIONS)
+    if not out:  # 一个标记都没解析到 → 视为失败
+        return None
+    for key, _ in _SECTIONS:
+        out.setdefault(key, "")
+    return out
 
 
 def deep_summarize(focus: str, paper):
@@ -187,21 +270,33 @@ def deep_summarize(focus: str, paper):
 {focus}
 </research_focus>
 
-请用{LANGUAGE}对下面这篇 arXiv 论文做结构化深度总结。只输出一个 JSON 对象
-(不要任何 markdown 围栏、不要多余文字),字段如下:
-{{"tldr": "一句话总结", "motivation": "研究动机/要解决的问题", "method": "核心方法", "result": "主要结果", "conclusion": "结论与意义"}}
+请用{LANGUAGE}对下面这篇 arXiv 论文做结构化深度总结。严格按下面的格式输出:
+每个 @@标记@@ 独占一行,其后紧跟该部分的正文(纯文字,可多句,不要用 markdown 列表/代码块/表格)。
+除这五段外不要输出任何其它内容。
+
+@@TLDR@@
+一句话总结
+@@MOTIVATION@@
+研究动机 / 要解决的问题
+@@METHOD@@
+核心方法
+@@RESULT@@
+主要结果
+@@CONCLUSION@@
+结论与意义
 
 标题: {paper.get("title", "")}
 作者: {", ".join(paper.get("authors", [])) if isinstance(paper.get("authors"), list) else paper.get("authors", "")}
 摘要: {paper.get("summary", "")}"""
-    res = claude_json(prompt, DEEP_MODEL)
-    if not isinstance(res, dict):
+    raw = claude_text(prompt, DEEP_MODEL)
+    if not raw:
         return dict(DEEP_FALLBACK)
-    return {k: str(res.get(k, "")) for k in ("tldr", "motivation", "method", "result", "conclusion")}
+    parsed = _parse_sections(raw)
+    return parsed if parsed else dict(DEEP_FALLBACK)
 
 
 def run_deep(focus: str, selected):
-    log(f"Stage 2 深度总结: {len(selected)} 篇 ({DEEP_WORKERS}并发, 模型={DEEP_MODEL})")
+    log(f"Stage 2 Opus 深度精修: {len(selected)} 篇 ({DEEP_WORKERS}并发, 模型={DEEP_MODEL})")
     results = {}
     done = 0
     with ThreadPoolExecutor(max_workers=DEEP_WORKERS) as ex:
@@ -243,38 +338,32 @@ def main():
         log("无论文,退出。")
         return
 
-    # Stage 1
-    scores = run_prefilter(focus, papers)
+    # Stage 1:全量分析 + 完整五段总结
+    analyzed = run_analyze(focus, papers)
 
-    # 把分数挂回每篇;选出深度总结对象
+    # 把分数 + 五段挂回每篇(此时每篇都已有完整 AI 内容)
     for p in papers:
-        s = scores.get(str(p["id"]), {})
-        p["relevance_score"] = int(s.get("relevance_score", 0) or 0)
-        p["topic"] = str(s.get("topic", "") or "未分类")
-        p["relevance_reason"] = str(s.get("reason", "") or "")
-        p["_prefilter_tldr"] = str(s.get("tldr", "") or "")
+        a = analyzed.get(str(p["id"]), {})
+        p["relevance_score"] = _to_score(a.get("score"))
+        p["topic"] = (a.get("topic") or "").strip() or "未分类"
+        p["relevance_reason"] = (a.get("reason") or "").strip()
+        ai = {k: (a.get(k) or "").strip() for k in ("tldr", "motivation", "method", "result", "conclusion")}
+        if not any(ai.values()):           # 分析整篇失败的兜底
+            ai["tldr"] = "(分析失败)"
+        p["AI"] = ai
+        p["deep"] = False
 
     ranked = sorted(papers, key=lambda x: x["relevance_score"], reverse=True)
     selected = [p for p in ranked if p["relevance_score"] >= RELEVANCE_THRESHOLD][:DEEP_TOP_K]
-    sel_ids = {str(p["id"]) for p in selected}
-    log(f"达到阈值(≥{RELEVANCE_THRESHOLD})且 Top{DEEP_TOP_K} 进入深度总结: {len(selected)} 篇")
+    log(f"达到阈值(≥{RELEVANCE_THRESHOLD})且 Top{DEEP_TOP_K} → Opus 深度精修: {len(selected)} 篇")
 
-    # Stage 2
+    # Stage 2:Top 相关论文用 Opus 重写五段,覆盖 Haiku 版
     deep = run_deep(focus, selected) if selected else {}
-
-    # 组装 AI 字段
-    for p in ranked:
-        pid = str(p["id"])
-        if pid in sel_ids and pid in deep:
-            p["AI"] = deep[pid]
+    for p in selected:
+        d = deep.get(str(p["id"]))
+        if d and d.get("tldr") != DEEP_FALLBACK["tldr"]:   # 成功才覆盖,失败保留 Haiku 版
+            p["AI"] = d
             p["deep"] = True
-        else:
-            p["AI"] = {
-                "tldr": p.get("_prefilter_tldr") or "(未深度总结)",
-                "motivation": "", "method": "", "result": "", "conclusion": "",
-            }
-            p["deep"] = False
-        p.pop("_prefilter_tldr", None)
 
     # 输出(按相关分降序)
     target = args.data.replace(".jsonl", f"_AI_enhanced_{LANGUAGE}.jsonl")
@@ -286,7 +375,7 @@ def main():
 
     deep_n = sum(1 for p in ranked if p.get("deep"))
     log(f"✅ 完成: 写出 {len(ranked)} 篇 → {target}")
-    log(f"   深度总结 {deep_n} 篇, 其余 {len(ranked) - deep_n} 篇仅预筛")
+    log(f"   每篇都有完整五段总结;其中 {deep_n} 篇为 Opus 精修, 其余 {len(ranked) - deep_n} 篇为 {PREFILTER_MODEL} 版")
     log(f"   claude 调用 {_call_count} 次, 累计成本 ≈ ${_total_cost:.4f}")
 
 

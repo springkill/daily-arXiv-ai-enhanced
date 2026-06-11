@@ -73,6 +73,14 @@ cd ai && python claude_enhance.py --data ../data/<日期>.jsonl
 - **改了 `deploy/web.conf` 后**:必须 `cd deploy && docker compose up -d --force-recreate`
   (单文件挂载有 inode 陷阱,改文件后容器还绑旧 inode,普通 reload 看不到改动)
 
+## 跨设备标记(已标记论文)
+
+- 在任意设备(手机/电脑)点论文卡片上的 ☆ 即可标记,顶栏⭐进入「已标记」页(`marked.html`)看到所有标记,跨设备同步。
+- 后端:`deploy/marks-api/`(纯标准库 Python,容器 `daily-arxiv-marks`),web 容器把 `/api/` 反代过去。
+  数据存 docker 命名卷 `marks-data` 的 `/data/marks.json`(不进 git,不被 nginx 托管,前置 basic auth 保护)。
+- 备份标记:`docker run --rm -v daily-arxiv_marks-data:/d alpine cat /d/marks.json`(卷名以 compose 项目名为前缀,用 `docker volume ls` 确认)。
+- 改了 `deploy/docker-compose.yml` 或 `marks-api/server.py` 后:`cd deploy && docker compose up -d`(server.py 是目录挂载,改完 `docker restart daily-arxiv-marks` 即可)。
+
 ## 移动端 / 手机
 
 - 页面已响应式 + 手机识别(`js/mobile.js` 给 `<html>` 加 `is-mobile`,手机上隐藏数据源切换、精简顶栏)。

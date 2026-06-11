@@ -370,6 +370,12 @@ function matchPapersByKeywordsOrAuthor(papers, keywords, author) {
 document.addEventListener('DOMContentLoaded', () => {
   initEventListeners();
 
+  // 跨设备标记:加载 + 变化时刷新星标与计数(也处理"标记晚于卡片渲染"的竞态)
+  if (window.Marks) {
+    Marks.onChange(refreshMarkUI);
+    Marks.load();
+  }
+
   fetchGitHubStats();
 
   // 加载用户关键词
@@ -390,6 +396,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
+
+// 刷新所有可见的星标按钮 + 顶栏「已标记」计数
+function refreshMarkUI() {
+  if (!window.Marks) return;
+  document.querySelectorAll('.mark-btn').forEach(btn => {
+    btn.classList.toggle('marked', Marks.isMarked(btn.getAttribute('data-id')));
+  });
+  const el = document.getElementById('markedCount');
+  if (el) {
+    const n = Marks.count();
+    el.textContent = n;
+    el.setAttribute('data-zero', n === 0 ? 'true' : 'false');
+  }
+}
 
 async function fetchGitHubStats() {
   try {
@@ -898,6 +918,41 @@ async function loadPapersByDate(date) {
       </div>
     `;
   }
+}
+
+// ⭐ 标记按钮:星形图标,marked 时高亮
+const STAR_SVG = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>';
+function markButtonHtml(paper) {
+  const marked = (typeof window !== 'undefined' && window.Marks && Marks.isMarked(paper.id));
+  return `<button class="mark-btn${marked ? ' marked' : ''}" data-id="${escapeHtmlAttr(paper.id)}" title="标记这篇,稍后在「已标记」里跨设备找到它" aria-label="标记">${STAR_SVG}</button>`;
+}
+function paperMarkMeta(paper) {
+  return {
+    title: paper.title,
+    url: paper.url,
+    date: paper.date,
+    categories: Array.isArray(paper.category) ? paper.category : (paper.allCategories || [paper.category]),
+    relevance_score: paper.relevance_score,
+    topic: paper.topic,
+  };
+}
+// 把某张卡上的标记按钮接上点击切换
+function wireMarkButton(btn, paper) {
+  if (!btn) return;
+  btn.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    if (!window.Marks) return;
+    btn.disabled = true;
+    try {
+      const nowMarked = await Marks.toggle(paper.id, paperMarkMeta(paper));
+      btn.classList.toggle('marked', nowMarked);
+    } catch (err) {
+      console.warn('标记切换失败:', err);
+      alert('标记失败,请稍后重试');
+    } finally {
+      btn.disabled = false;
+    }
+  });
 }
 
 // 转义用于 HTML 属性/文本的字符串(防止 topic/reason 里的特殊字符破坏标签)
@@ -1454,18 +1509,20 @@ function renderPapers() {
         <p class="paper-card-summary">${highlightedSummary}</p>
         <div class="paper-card-footer">
           <div class="footer-left">
+            ${markButtonHtml(paper)}
             <span class="paper-card-date">${formatDate(paper.date)}</span>
           </div>
           <span class="paper-card-link">Details</span>
         </div>
       </div>
     `;
-    
+
     paperCard.addEventListener('click', () => {
       currentPaperIndex = index; // 记录当前点击的论文索引
       showPaperDetails(paper, index + 1);
     });
-    
+    wireMarkButton(paperCard.querySelector('.mark-btn'), paper);
+
     container.appendChild(paperCard);
   });
 }

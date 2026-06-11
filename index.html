@@ -110,6 +110,12 @@
                         <span class="data-source-label">数据源</span>
                         <span class="data-source-value">本仓库</span>
                     </button>
+                    <a href="marked.html" class="icon-button marked-nav" title="已标记的论文(跨设备)">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                        </svg>
+                        <span class="marked-count-badge" id="markedCount" data-zero="true">0</span>
+                    </a>
                     <a href="statistic.html" class="icon-button" title="Statistics">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M9 17H7V10H9V17ZM13 17H11V7H13V17ZM17 17H15V13H17V17ZM19 19H5V5H19V19.1V19ZM19 3H5C3.9 3 3 3.9 3 5V19C3 20.1 3.9 21 5 21H19C20.1 21 21 20.1 21 19V5C21 3.9 20.1 3 19 3Z" fill="currentColor"/>
@@ -257,6 +263,7 @@
     </button>
 
     <script src="js/data-source.js"></script>
-    <script src="js/app.js?v=1.0.1"></script>
+    <script src="js/marks.js"></script>
+    <script src="js/app.js?v=1.0.2"></script>
 </body>
 </html> 

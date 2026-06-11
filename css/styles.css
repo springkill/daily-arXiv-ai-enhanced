@@ -2436,3 +2436,67 @@ footer {
 @media (display-mode: standalone) {
   header { padding-top: env(safe-area-inset-top); }
 }
+
+/* =========================================================================
+   ⭐ 跨设备标记
+   ========================================================================= */
+/* 卡片上的星标按钮 */
+.mark-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  margin-right: 6px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--text-secondary, #94a3b8);
+  border-radius: 6px;
+  line-height: 0;
+  transition: color .15s, transform .1s, background .15s;
+}
+.mark-btn svg { fill: none; stroke: currentColor; stroke-width: 1.8; }
+.mark-btn:hover { background: var(--background-hover, #f1f5f9); color: #d97706; }
+.mark-btn:active { transform: scale(.9); }
+.mark-btn.marked { color: #f5b301; }
+.mark-btn.marked svg { fill: #f5b301; stroke: #f5b301; }
+.mark-btn:disabled { opacity: .5; cursor: default; }
+
+/* 顶栏「已标记」计数徽章 */
+.marked-nav { position: relative; }
+.marked-count-badge {
+  position: absolute;
+  top: -2px; right: -4px;
+  min-width: 16px; height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: #f5b301;
+  color: #1f2937;
+  font-size: 10px; font-weight: 700;
+  line-height: 16px; text-align: center;
+}
+.marked-count-badge:empty,
+.marked-count-badge[data-zero="true"] { display: none; }
+
+/* 已标记列表页 */
+.marked-page { max-width: 900px; margin: 0 auto; padding: 16px; }
+.marked-page-head h2 { margin: 8px 0 4px; }
+.marked-hint { color: var(--text-secondary, #94a3b8); font-size: 13px; margin: 0 0 16px; }
+.marked-list { display: flex; flex-direction: column; gap: 10px; }
+.marked-loading, .marked-empty { color: var(--text-secondary, #94a3b8); text-align: center; padding: 40px 12px; line-height: 1.6; }
+.marked-item {
+  display: flex; align-items: flex-start; gap: 6px;
+  padding: 12px 14px;
+  background: var(--card-background, #fff);
+  border: 1px solid var(--border-accent, #e5e7eb);
+  border-radius: 12px;
+}
+.marked-item .mark-btn { margin-top: 1px; flex: 0 0 auto; }
+.marked-item-body { flex: 1 1 auto; min-width: 0; }
+.marked-item-title {
+  display: block; font-weight: 600; color: var(--text-primary, #1f2937);
+  text-decoration: none; line-height: 1.4; overflow-wrap: anywhere;
+}
+.marked-item-title:hover { text-decoration: underline; }
+.marked-item-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }
+.marked-item-date { color: var(--text-secondary, #94a3b8); font-size: 12px; }

@@ -4,8 +4,8 @@
 name: arXiv-daily-ai-enhanced
 
 on:
-  schedule:
-    - cron: "30 1 * * *"
+  # 已改为自托管(本地 cron),停用 GitHub Actions 定时任务以免消耗额度。
+  # 如需临时在 GitHub 上手动跑,可用 workflow_dispatch 手动触发。
   workflow_dispatch:
 
 

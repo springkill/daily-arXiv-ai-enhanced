@@ -1,3 +1,4 @@
+# 由 nginx 官方镜像的 envsubst 从 web.conf.template 渲染而来 —— 不要直接改容器里的副本。
 # 静态站点:前端 SPA + 本机生成的 data/ 与 assets/(由宿主流水线写入)
 server {
     listen 80;
@@ -31,11 +32,12 @@ server {
     # 它要调用你本机已登录的 Claude Code / Codex CLI,塞进容器还得装 node + 挂凭据,
     # 不值当。所以这里代理到 docker 网桥上的宿主地址。
     #
-    # ⚠️ 换机器要改这个 IP:`docker network inspect <你的网络名>` 看 Gateway,
-    #    常见是 172.17.0.1(默认 bridge)或 172.2x.0.1(自建网络)。
-    #    同时把 arxiv-api 的 REVIEW_BIND 设成同一个地址。
+    # ⚠️ 地址由 compose 的 API_UPSTREAM 注入(nginx 官方镜像会用 envsubst 把
+    #    /etc/nginx/templates/*.template 渲染进 conf.d/)。
+    #    用 `docker network inspect <你的网络名>` 看 Gateway,常见 172.17.0.1;
+    #    同一个地址要同时设给 arxiv-api 的 REVIEW_BIND。
     location /api/ {
-        proxy_pass http://172.22.0.1:8801;
+        proxy_pass http://${API_UPSTREAM};
         proxy_set_header Host $host;
         # 用户身份由网关那层的 basic auth 决定,这里只做透传。
         # 客户端自己带的 X-Auth-User 在网关already被 $remote_user 覆盖掉了。

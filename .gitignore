@@ -34,3 +34,6 @@ var/
 # 仓库里只放模板/种子:research_focus.example.txt、trend-taxonomy.seed.json
 ai/research_focus.txt
 assets/trend-taxonomy.json
+
+# compose 的本机变量(各人的 docker 网桥地址不同)
+deploy/.env

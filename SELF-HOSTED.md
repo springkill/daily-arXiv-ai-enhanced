@@ -156,6 +156,20 @@ sqlite3 var/store.sqlite3 ".backup /path/to/store-$(date +%F).sqlite3"
 
 审稿意见是花过钱的产出,值得进你自己的备份流程(但别进 git)。
 
+### 后端地址怎么配
+
+`deploy/web.conf.template` 里的后端地址由 compose 变量 `API_UPSTREAM` 注入
+(nginx 官方镜像会用 envsubst 渲染 `/etc/nginx/templates/*.template`)。
+各人的 docker 网桥不同,所以放在 `deploy/.env`(已 gitignore):
+
+```bash
+docker network inspect <你的网络名> --format '{{range .IPAM.Config}}{{.Gateway}}{{end}}'
+echo "API_UPSTREAM=172.17.0.1:8801" > deploy/.env      # 换成上面查到的地址
+cd deploy && docker compose up -d
+```
+
+同一个地址要设给 arxiv-api 的 `REVIEW_BIND`(在 `.env.local` 里)。
+
 ### nginx 两层,超时都要放宽
 
 `deploy/web.conf` 的 `location /api/`(900s)和网关

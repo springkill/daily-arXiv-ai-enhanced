@@ -1,58 +1,11 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="description" content="已标记的 arXiv 论文">
-    <title>已标记 - Daily arXiv AI Enhanced</title>
-    <link rel="icon" type="image/png" href="assets/logo2-removebg-preview.png">
-    <meta name="theme-color" content="#5b5bd6">
-    <link rel="manifest" href="manifest.webmanifest">
-    <script src="js/mobile.js"></script>
-    <link rel="stylesheet" href="css/styles.css">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
+<meta charset="UTF-8">
+<title>Daily arXiv AI Enhanced</title>
+<!-- 这四个页面已合并进 index.html 的单页应用,这里只做跳转,保住老书签和 PWA 快捷方式 -->
+<script>location.replace('index.html#/marked' + location.search);</script>
+<meta http-equiv="refresh" content="0; url=index.html#/marked">
 </head>
-<body>
-    <div class="app-container">
-        <header>
-            <div class="header-content">
-                <div class="header-left">
-                    <a href="index.html" class="icon-button" title="返回">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
-                    </a>
-                </div>
-                <div class="header-center">
-                    <a href="index.html" class="site-logo">
-                        <img src="assets/logo2-removebg-preview.png" alt="Logo" class="logo-image">
-                        <span class="site-title">已标记的论文</span>
-                    </a>
-                </div>
-                <div class="header-controls">
-                    <a href="index.html" class="icon-button" title="首页">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M3 12l9-9 9 9M5 10v10h14V10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
-                    </a>
-                </div>
-            </div>
-        </header>
-
-        <main>
-            <div class="marked-page">
-                <div class="marked-page-head">
-                    <h2>⭐ 已标记 <span id="markedTotal">0</span> 篇</h2>
-                    <p class="marked-hint">在任意设备标记的论文都会出现在这里。点星号可取消标记。</p>
-                </div>
-                <div id="markedList" class="marked-list">
-                    <div class="marked-loading">加载中…</div>
-                </div>
-            </div>
-        </main>
-    </div>
-
-    <script src="js/marks.js"></script>
-    <script src="js/marked-page.js"></script>
-</body>
+<body><p>正在跳转… <a href="index.html#/marked">点此继续</a></p></body>
 </html>

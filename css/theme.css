@@ -1,0 +1,166 @@
+/* ==========================================================================
+   设计 token —— 黑白绿,明暗双主题
+   --------------------------------------------------------------------------
+   规则:
+   1. 中性色承担 95% 的界面,绿色只做「强调/选中/主操作」一件事。
+   2. 主题由 <html data-theme="light|dark"> 决定;没有该属性时跟随系统。
+      js/theme.js 在首屏绘制前写入属性,避免闪白。
+   3. 组件样式一律引用 token,不写死颜色 —— 写死的那一刻就丢了暗色模式。
+
+   对比度(WCAG,已实测):
+     浅色 —— 正文 #0f1115/白 17.9:1,次级 #4b5563 7.6:1,弱化 #6b7280 4.8:1,
+             强调 #0b7a43 5.4:1(白字放在它上面也是 5.4:1)
+     深色 —— 正文 #e8eaed/#16191b 14.7:1,次级 #9aa3ab 6.9:1,弱化 #7d8690 4.8:1,
+             强调 #34d399 9.2:1
+   ========================================================================== */
+
+:root {
+  /* ---- 中性 ---- */
+  --bg:            #f6f7f7;   /* 页面底色 */
+  --surface:       #ffffff;   /* 卡片/面板 */
+  --surface-2:     #f1f3f2;   /* 次级面(输入框、hover 底) */
+  --surface-3:     #e8ebea;   /* 更深一档,用于 active/选中底 */
+  --ink:           #0f1115;   /* 主文字 */
+  --ink-2:         #4b5563;   /* 次级文字 */
+  --ink-3:         #6b7280;   /* 弱化文字、占位符 */
+  --line:          #e3e6e5;   /* 边框、分隔线 */
+  --line-strong:   #cdd2d0;   /* 需要更明确的边界时 */
+
+  /* ---- 绿(唯一强调色) ---- */
+  --accent:        #0b7a43;   /* 强调文字/图标/主按钮底 */
+  --accent-hover:  #096536;
+  --accent-ink:    #ffffff;   /* 放在 --accent 上的文字 */
+  --accent-soft:   #e6f4ec;   /* 强调色的浅底(选中态、徽章) */
+  --accent-line:   #b7dcc7;   /* 强调色的边框 */
+
+  /* ---- 状态(与绿区分开,不复用为「第 N 个系列」) ---- */
+  --warn:          #b45309;
+  --warn-soft:     #fdf3e7;
+  --danger:        #b42318;
+  --danger-soft:   #fdecea;
+  --star:          #c8880a;   /* 收藏星标 */
+
+  /* ---- 形状与动效 ---- */
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-full: 999px;
+  --shadow-sm: 0 1px 2px rgba(15, 17, 21, 0.06);
+  --shadow-md: 0 4px 14px rgba(15, 17, 21, 0.08);
+  --shadow-lg: 0 12px 32px rgba(15, 17, 21, 0.14);
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --t-fast: 120ms var(--ease);
+  --t: 180ms var(--ease);
+
+  /* ---- 布局 ---- */
+  --shell-w: 1600px;      /* 内容最大宽度,统计页原来只有 800px 才显得两边空 */
+  --header-h: 60px;
+  --gap: 16px;
+
+  /* ---- 图表分类色板(浅色) ----
+     取自 dataviz 参考色板,已用 validate_palette.js 在 #ffffff 上校验:
+     相邻 CVD ΔE 9.1、常视 ΔE 19.6,均过线。分类色需要可区分的色相,
+     因此不跟随黑白绿主题 —— 强行把 8 个系列压成绿色系会读不出身份。 */
+  --c1: #2a78d6;  --c2: #eb6834;  --c3: #1baf7a;  --c4: #eda100;
+  --c5: #e87ba4;  --c6: #008300;  --c7: #4a3aa7;  --c8: #e34948;
+  --c-other: #8a8f98;
+  --chart-grid: #eceff4;
+  --chart-hair: #c3cac6;
+}
+
+/* 系统偏好深色,且用户没手动指定过 → 用深色 */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --bg:          #0d0f10;
+    --surface:     #16191b;
+    --surface-2:   #1e2225;
+    --surface-3:   #272c30;
+    --ink:         #e8eaed;
+    --ink-2:       #9aa3ab;
+    --ink-3:       #7d8690;
+    --line:        #262b2e;
+    --line-strong: #363d41;
+
+    --accent:       #34d399;
+    --accent-hover: #4ade80;
+    --accent-ink:   #08130d;
+    --accent-soft:  #10241b;
+    --accent-line:  #1f4634;
+
+    --warn:        #f0a952;
+    --warn-soft:   #2a2015;
+    --danger:      #f47c72;
+    --danger-soft: #2c1917;
+    --star:        #e8b93f;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.45);
+    --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.55);
+
+    /* 深色表面上的同一组色相,已在 #16191b 上校验:
+       相邻 CVD ΔE 8.4、常视 ΔE 19.3、全部 ≥3:1 */
+    --c1: #3987e5;  --c2: #d95926;  --c3: #199e70;  --c4: #c98500;
+    --c5: #d55181;  --c6: #008300;  --c7: #9085e9;  --c8: #e66767;
+    --c-other: #767d85;
+    --chart-grid: #23282b;
+    --chart-hair: #3d454a;
+  }
+}
+
+/* 用户手动选了深色 → 无论系统偏好如何都用深色 */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg:          #0d0f10;
+  --surface:     #16191b;
+  --surface-2:   #1e2225;
+  --surface-3:   #272c30;
+  --ink:         #e8eaed;
+  --ink-2:       #9aa3ab;
+  --ink-3:       #7d8690;
+  --line:        #262b2e;
+  --line-strong: #363d41;
+
+  --accent:       #34d399;
+  --accent-hover: #4ade80;
+  --accent-ink:   #08130d;
+  --accent-soft:  #10241b;
+  --accent-line:  #1f4634;
+
+  --warn:        #f0a952;
+  --warn-soft:   #2a2015;
+  --danger:      #f47c72;
+  --danger-soft: #2c1917;
+  --star:        #e8b93f;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.55);
+
+  --c1: #3987e5;  --c2: #d95926;  --c3: #199e70;  --c4: #c98500;
+  --c5: #d55181;  --c6: #008300;  --c7: #9085e9;  --c8: #e66767;
+  --c-other: #767d85;
+  --chart-grid: #23282b;
+  --chart-hair: #3d454a;
+}
+
+:root[data-theme="light"] { color-scheme: light; }
+
+/* 原生控件(复选框、单选、进度条)跟着强调色走,否则是浏览器默认蓝 */
+:root { accent-color: var(--accent); }
+
+/* 主题切换时给底色和文字一点过渡,但不要让所有属性都动 —— 那会让交互发黏 */
+html.theme-ready body,
+html.theme-ready .themed-surface {
+  transition: background-color var(--t), color var(--t), border-color var(--t);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

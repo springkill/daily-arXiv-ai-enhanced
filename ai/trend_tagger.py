@@ -40,14 +40,26 @@ def log(msg):
     print(f"[trend_tagger] {msg}", file=sys.stderr, flush=True)
 
 
+SEED_FILE = os.path.join(ROOT, "assets", "trend-taxonomy.seed.json")
+
+
 def load_taxonomy(path=TAXONOMY_FILE):
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        return data
-    except Exception as e:
-        log(f"⚠️ 标签库读取失败({path}): {e},返回空库")
-        return {"version": 1, "updated": time.strftime("%Y-%m-%d"), "primary": [], "sub": []}
+    """读活的标签库;第一次跑(文件还不存在)就从仓库自带的种子起步。
+    活的那份是各人自己的,已 gitignore;仓库里只放种子。"""
+    for candidate, why in ((path, ""), (SEED_FILE, "(首次运行,从种子起步)")):
+        try:
+            with open(candidate, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if why:
+                log(f"标签库{why}: {candidate}")
+            return data
+        except FileNotFoundError:
+            continue
+        except Exception as e:
+            log(f"⚠️ 标签库读取失败({candidate}): {e}")
+            break
+    log("⚠️ 种子也没有,返回空库")
+    return {"version": 1, "updated": time.strftime("%Y-%m-%d"), "primary": [], "sub": []}
 
 
 def save_taxonomy(data, path=TAXONOMY_FILE):

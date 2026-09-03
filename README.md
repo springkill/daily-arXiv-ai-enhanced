@@ -62,8 +62,10 @@ pip install -e .        # 或 uv sync
 
 ```bash
 cp .env.local.example .env.local
-$EDITOR .env.local          # 至少改 CATEGORIES 和 LLM_PROVIDER
-$EDITOR ai/research_focus.txt   # 写你的研究方向，这是打分的唯一依据
+$EDITOR .env.local              # 至少改 CATEGORIES 和 LLM_PROVIDER
+
+cp ai/research_focus.example.txt ai/research_focus.txt
+$EDITOR ai/research_focus.txt   # 写你自己的研究方向，这是打分的唯一依据
 ```
 
 自检一下 LLM 通不通：
@@ -111,7 +113,8 @@ crontab -e
 | `data/` | 每日 jsonl 与 Markdown | 否 |
 | `var/store.sqlite3` | 你的标记 + 审稿结果 | **否** |
 | `.env.local` | 你的配置 | **否** |
-| `ai/research_focus.txt` | 你的研究方向 | 是（自己改） |
+| `ai/research_focus.txt` | 你的研究方向 | **否**（仓库里只有 `.example.txt` 模板） |
+| `assets/trend-taxonomy.json` | 自举出来的子方向标签库 | **否**（仓库里只有 `.seed.json`） |
 
 标记和审稿结果按用户分行存（`user` 取自反向代理转发的 `X-Auth-User`），
 **每个人跑自己的实例、存自己的数据**，仓库里不含任何人的私人数据。

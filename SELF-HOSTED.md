@@ -30,7 +30,7 @@ docker(deploy/docker-compose.yml): daily-arxiv-web (nginx:alpine)
 
 ~/services/nginx-gateway(已有反代):
   conf.d/arxiv.conf  →  proxy_pass http://daily-arxiv-web:80
-  arxiv.example.com(通配符证书 *.example.com)+ basic auth(.htpasswd_arxiv   # <你自己的 htpasswd 文件>)
+  arxiv.example.com(通配符证书 *.example.com)+ basic auth(.htpasswd_arxiv)
 ```
 
 ## 2. 访问
@@ -53,7 +53,7 @@ docker(deploy/docker-compose.yml): daily-arxiv-web (nginx:alpine)
 
 重置站点密码:
 ```bash
-docker run --rm httpd:alpine htpasswd -bn arxiv '新密码' > ~/services/nginx-gateway/.htpasswd_arxiv   # <你自己的 htpasswd 文件>
+docker run --rm httpd:alpine htpasswd -bn arxiv '新密码' > ~/services/nginx-gateway/.htpasswd_arxiv
 docker exec nginx-gateway nginx -s reload
 ```
 

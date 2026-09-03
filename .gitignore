@@ -29,3 +29,8 @@ data/.review-cache.json
 
 # 本机运行时数据(标记、审稿结果的 sqlite 库)。各人一份,不进 git。
 var/
+
+# 你自己的研究方向与自举出来的标签库 —— 各人一份,不进 git。
+# 仓库里只放模板/种子:research_focus.example.txt、trend-taxonomy.seed.json
+ai/research_focus.txt
+assets/trend-taxonomy.json

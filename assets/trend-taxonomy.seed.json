@@ -1,0 +1,280 @@
+{
+  "version": 1,
+  "note": "种子标签库。运行 ai/trend_tagger.py 后会自举出 assets/trend-taxonomy.json(已 gitignore),那是你自己的。",
+  "primary": [
+    {
+      "key": "cs.CR",
+      "label": "安全与漏洞"
+    },
+    {
+      "key": "cs.SE",
+      "label": "软件工程"
+    },
+    {
+      "key": "cs.CL",
+      "label": "自然语言处理"
+    },
+    {
+      "key": "cs.AI",
+      "label": "AI"
+    },
+    {
+      "key": "cs.LG",
+      "label": "机器学习"
+    },
+    {
+      "key": "cs.DC",
+      "label": "分布式与并行计算"
+    },
+    {
+      "key": "cs.AR",
+      "label": "硬件架构"
+    },
+    {
+      "key": "cs.CV",
+      "label": "计算机视觉"
+    },
+    {
+      "key": "cs.GR",
+      "label": "图形学"
+    },
+    {
+      "key": "cs.DB",
+      "label": "数据库"
+    },
+    {
+      "key": "cs.HC",
+      "label": "人机交互"
+    },
+    {
+      "key": "cs.IT",
+      "label": "信息论"
+    },
+    {
+      "key": "cs.NE",
+      "label": "神经计算"
+    },
+    {
+      "key": "cs.PL",
+      "label": "编程语言"
+    },
+    {
+      "key": "cs.CE",
+      "label": "计算工程"
+    },
+    {
+      "key": "cs.RO",
+      "label": "机器人"
+    },
+    {
+      "key": "cs.GT",
+      "label": "博弈论"
+    },
+    {
+      "key": "cs.CY",
+      "label": "计算机与社会"
+    },
+    {
+      "key": "cs.MA",
+      "label": "多智能体系统"
+    }
+  ],
+  "sub": [
+    {
+      "id": "vuln",
+      "label": "漏洞发现与挖掘",
+      "aliases": [
+        "漏洞挖掘",
+        "漏洞检测",
+        "fuzzing",
+        "模糊测试",
+        "漏洞扫描",
+        "漏洞利用",
+        "Vulnerability"
+      ]
+    },
+    {
+      "id": "static-analysis",
+      "label": "静态分析",
+      "aliases": [
+        "代码静态分析",
+        "污点分析",
+        "数据流分析",
+        "符号执行",
+        "SAST",
+        "程序分析",
+        "code analysis",
+        "程序理解"
+      ]
+    },
+    {
+      "id": "llm-security",
+      "label": "LLM安全与对齐",
+      "aliases": [
+        "提示注入",
+        "越狱",
+        "对抗攻击",
+        "后门",
+        "投毒",
+        "模型安全",
+        "Agent安全",
+        "红队",
+        "安全对齐",
+        "LLM安全",
+        "AI安全",
+        "security of LLM"
+      ]
+    },
+    {
+      "id": "vuln-repair",
+      "label": "漏洞修复",
+      "aliases": [
+        "缺陷修复",
+        "程序修复",
+        "patch",
+        "自动修复",
+        "bug修复",
+        "漏洞补丁"
+      ]
+    },
+    {
+      "id": "code-generation",
+      "label": "代码生成",
+      "aliases": [
+        "程序合成",
+        "代码补全",
+        "代码合成",
+        "codegen",
+        "code generation",
+        "程序生成"
+      ]
+    },
+    {
+      "id": "code-review",
+      "label": "代码评审",
+      "aliases": [
+        "代码审查",
+        "代码审计",
+        "code review",
+        "audit"
+      ]
+    },
+    {
+      "id": "test-gen",
+      "label": "测试生成",
+      "aliases": [
+        "测试用例生成",
+        "自动化测试",
+        "test generation",
+        "测试生成",
+        "unit test"
+      ]
+    },
+    {
+      "id": "agent",
+      "label": "Agent系统",
+      "aliases": [
+        "智能体",
+        "多智能体",
+        "LLM Agent",
+        "agentic",
+        "自主代理",
+        "工具调用",
+        "agent framework"
+      ]
+    },
+    {
+      "id": "reverse-engineering",
+      "label": "逆向工程",
+      "aliases": [
+        "逆向",
+        "恶意代码分析",
+        "恶意软件",
+        "反混淆",
+        "malware",
+        "二进制分析",
+        "反汇编"
+      ]
+    },
+    {
+      "id": "model-merge",
+      "label": "模型合并与编辑",
+      "aliases": [
+        "模型整合",
+        "task arithmetic",
+        "模型编辑",
+        "model merging",
+        "模型融合"
+      ]
+    },
+    {
+      "id": "privacy",
+      "label": "隐私保护",
+      "aliases": [
+        "隐私",
+        "联邦学习隐私",
+        "隐私泄露",
+        "差分隐私",
+        "成员推断",
+        "模型窃取"
+      ]
+    },
+    {
+      "id": "hallucination",
+      "label": "幻觉与可信度",
+      "aliases": [
+        "幻觉",
+        "事实性",
+        "引用偏见",
+        "hallucination",
+        "可靠性",
+        "可信"
+      ]
+    },
+    {
+      "id": "optimization",
+      "label": "推理与训练优化",
+      "aliases": [
+        "推理优化",
+        "加速",
+        "量化",
+        "蒸馏",
+        "压缩",
+        "训练效率",
+        "inference"
+      ]
+    },
+    {
+      "id": "multimodal",
+      "label": "多模态",
+      "aliases": [
+        "多模态",
+        "视觉语言",
+        "图文",
+        "音频理解",
+        "视频理解"
+      ]
+    },
+    {
+      "id": "evaluation",
+      "label": "评测基准",
+      "aliases": [
+        "基准测试",
+        "benchmark",
+        "评估",
+        "evaluation",
+        "指标"
+      ]
+    },
+    {
+      "id": "dataset",
+      "label": "数据集",
+      "aliases": [
+        "数据构建",
+        "数据收集",
+        "数据集构建",
+        "data collection"
+      ]
+    }
+  ]
+}

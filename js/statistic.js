@@ -76,12 +76,16 @@
 
   async function loadTaxonomy() {
     if (taxonomy) return taxonomy;
-    try {
-      var res = await fetch(DATA_CONFIG.getDataUrl('assets/trend-taxonomy.json'), { cache: 'no-store' });
-      if (res.ok) taxonomy = await res.json();
-    } catch (e) {
-      console.warn('[stats] 标签库加载失败,子方向将显示 id', e);
+    // 活的标签库是各人自己跑出来的(gitignore);还没跑过就退回仓库自带的种子,
+    // 否则图例会显示 t162007 这种内部 id。
+    var urls = ['assets/trend-taxonomy.json', 'assets/trend-taxonomy.seed.json'];
+    for (var i = 0; i < urls.length; i++) {
+      try {
+        var res = await fetch(DATA_CONFIG.getDataUrl(urls[i]), { cache: 'no-store' });
+        if (res.ok) { taxonomy = await res.json(); return taxonomy; }
+      } catch (e) { /* 试下一个 */ }
     }
+    console.warn('[stats] 标签库都取不到,子方向将显示 id');
     return taxonomy;
   }
 

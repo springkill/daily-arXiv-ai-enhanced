@@ -1,44 +1,97 @@
-# daily-arXiv-ai-enhanced（自托管分支）
+<div align="center">
 
-每天自动抓 arXiv 新论文，用**你自己已登录的编码助手 CLI**（Claude Code 或 Codex）
-做中文总结、按你的研究方向打分排序，并提供一个单页阅读器：论文列表、一键审稿、
-跨设备标记、研究趋势统计。
+# Daily arXiv AI Enhanced · 自托管版
 
-> 这是 [dw-dengwei/daily-arXiv-ai-enhanced](https://github.com/dw-dengwei/daily-arXiv-ai-enhanced)
-> 的自托管改造分支。上游走 GitHub Actions + 第三方 LLM API key；本分支改成
-> **本机 cron + 本机 CLI**，不需要任何 API key，数据和花费都在你自己这边。
+**每天自动追 arXiv，用你自己的 Claude Code / Codex 做总结、打分、审稿。不需要任何 API key。**
 
-> [!CAUTION]
-> 若您所在法域对学术数据有审查要求，谨慎运行本代码；任何二次分发版本必须履行合规审查
-> （包括但不限于原始论文合规性、AI 合规性）义务，否则一切法律后果由下游自行承担。
+**Track arXiv daily. Summarize, rank and review papers with *your own*
+Claude Code / Codex CLI — no third-party API key required.**
 
-## 和上游的区别
+[中文](#中文) · [English](#english) · [详细文档 / Full Guide](./docs/GUIDE.md)
+
+</div>
+
+---
+
+<div align="center">
+<img src="images/ui-papers-dark.png" width="88%" alt="论文列表 / Paper list">
+</div>
+
+---
+
+<a id="中文"></a>
+
+# 中文
+
+## 这是什么
+
+上游 [dw-dengwei/daily-arXiv-ai-enhanced](https://github.com/dw-dengwei/daily-arXiv-ai-enhanced)
+用 GitHub Actions + 第三方 LLM API key 跑。这个分支把它改成**本机 cron + 本机 CLI**：
+
+调用的是你已经登录好的 **Claude Code** 或 **Codex**，走你自己的订阅额度，
+不需要申请任何 API key，论文数据和审稿结果全部留在你自己机器上。
 
 | | 上游 | 本分支 |
 |---|---|---|
-| 运行 | GitHub Actions | 本机 cron |
-| 模型 | DeepSeek / OpenAI API key | 你本机已登录的 **Claude Code 或 Codex** |
-| 花费 | 按 token 付费 | 用你自己的订阅额度，无需 API key |
-| 前端 | 多页 | 单页应用（hash 路由，切换不重载） |
-| 排序 | 按类别 | 按你写的研究方向打 0-10 分排序 |
-| 额外 | — | 一键审稿、跨设备标记、研究趋势图、明暗主题 |
+| 运行方式 | GitHub Actions | 本机 cron |
+| 模型 | DeepSeek / OpenAI API key | 你本机已登录的 Claude Code 或 Codex |
+| 花费 | 按 token 付费 | 用已有订阅额度，无需 API key |
+| 前端 | 多页面 | 单页应用，切换不重载 |
+| 排序 | 按类别 | 按你写的研究方向打 0–10 分排序 |
+| 额外功能 | — | 一键审稿、跨设备标记、研究趋势图、明暗主题 |
 
 ## 功能
 
-- **每日流水线**：爬取 → 近 7 天去重 → 全量打分与五段总结（fast 档）→ 高分论文用
-  deep 档重写 → 子方向打标 → 生成 Markdown。
-- **相关性排序**：`ai/research_focus.txt` 里写你的研究方向，它是打分的唯一依据。
-  改完下次跑自动生效，不用动代码。
-- **一键审稿**：两层。先用 fast 档从固定会议白名单里判定投稿会议，
-  再按「快速 / 正常 / 深度」选模型，以该会议审稿人的身份出结构化意见
-  （总评、优点、不足、详细意见、给作者的问题、评分、推荐、置信度）。
-- **跨设备标记**：标过的论文在任何设备上都能看到，并直接显示审稿结论。
-- **研究趋势**：主方向 / 子方向 / 关键词的每日趋势图，可切表格视图。
-- **明暗主题**：跟随系统或手动切换。
+### 相关性排序，而不是按类别堆
+
+在 `ai/research_focus.txt` 里写下你的研究方向，它是打分的**唯一依据**。
+每天全部论文都会拿到 0–10 分和完整五段总结；分数达标且当天靠前的，
+再用最强的模型重写一遍。改完这个文件，下次跑自动生效，不用碰代码。
+
+### 一键审稿
+
+<div align="center">
+<img src="images/ui-review.png" width="88%" alt="一键审稿 / One-click review">
+</div>
+
+两层：先用快模型从固定会议白名单里判定这篇最可能投哪个会（NDSS / USENIX Security /
+ICSE / NeurIPS …），再按 **快速 / 正常 / 深度** 选模型，以该会议审稿人的身份给出
+总体评价、优点、不足、详细意见、给作者的问题、评分、推荐、置信度。
+
+三档差别是实打实的：同一篇论文，快模型给「小修 8/10」，中档模型给「大修 4/10」
+并具体质疑到「2.6 微秒/决策低于 OPA/Rego 的典型延迟，需说明测量口径」。
+
+### 研究趋势
+
+<div align="center">
+<img src="images/ui-stats.png" width="88%" alt="研究趋势 / Trends">
+</div>
+
+主方向、子方向、关键词的每日趋势。十字准线一次读出当天所有系列的数值，
+图例可点开关，随时切表格视图。子方向标签是自举的——模型先查已有标签，
+确实没有匹配的才新建。
+
+### 跨设备标记 × 审稿结论
+
+<div align="center">
+<img src="images/ui-marked.png" width="88%" alt="已标记 / Bookmarks">
+</div>
+
+标记和审稿结果存在同一个 sqlite 里，所以收藏列表直接显示推荐、评分和会议，
+不用再点进去。可以只看已审稿的。
+
+### 明暗主题 · 手机可用
+
+<div align="center">
+<img src="images/ui-papers-light.png" width="44%" alt="浅色 / Light">
+<img src="images/ui-mobile.png" width="21%" alt="手机 / Mobile">
+</div>
+
+黑白绿配色，跟随系统或手动切换。首屏绘制前就定好主题，深色模式不会闪白。
 
 ## 快速开始
 
-### 1. 准备 LLM CLI（二选一）
+### 1. 准备 CLI（二选一）
 
 ```bash
 # Claude Code —— https://claude.com/claude-code
@@ -48,92 +101,179 @@ npm i -g @anthropic-ai/claude-code && claude      # 交互式登录一次
 npm i -g @openai/codex && codex login
 ```
 
-登录信息存在 `~/.claude` / `~/.codex`，本项目直接复用，**不需要任何 API key**。
+登录信息在 `~/.claude` / `~/.codex`，项目直接复用，**不需要 API key**。
 
 ### 2. 装依赖
 
 ```bash
-git clone <你的 fork> && cd daily-arXiv-ai-enhanced
+git clone https://github.com/springkill/daily-arXiv-ai-enhanced.git
+cd daily-arXiv-ai-enhanced
 python3 -m venv .venv && source .venv/bin/activate
-pip install -e .        # 或 uv sync
+pip install -e .
 ```
 
 ### 3. 配置
 
 ```bash
 cp .env.local.example .env.local
-$EDITOR .env.local              # 至少改 CATEGORIES 和 LLM_PROVIDER
+$EDITOR .env.local                              # 改 CATEGORIES 和 LLM_PROVIDER
 
 cp ai/research_focus.example.txt ai/research_focus.txt
-$EDITOR ai/research_focus.txt   # 写你自己的研究方向，这是打分的唯一依据
+$EDITOR ai/research_focus.txt                   # 写你的研究方向
 ```
 
-自检一下 LLM 通不通：
+自检 LLM 是否可用：
 
 ```bash
 python3 ai/llm.py "reply with exactly: OK"
 ```
 
-### 4. 跑一次
+### 4. 跑起来
 
 ```bash
-./run-local.sh              # 爬取 → 总结 → 打标 → 出 Markdown
+./run-local.sh                    # 爬取 → 总结 → 打标 → 出 Markdown
+python3 -m http.server 8000       # 打开 http://localhost:8000
 ```
 
-产物在 `data/<日期>_AI_enhanced_<语言>.jsonl`。
+### 5. 后端与定时（可选）
 
-### 5. 看页面
-
-任何静态服务器都能起：
+「已标记」和「一键审稿」需要后端；不起后端其余功能照常可用。
 
 ```bash
-python3 -m http.server 8000     # 然后打开 http://localhost:8000
-```
-
-「已标记」和「一键审稿」需要后端（见下）；不起后端的话其余功能照常可用。
-
-### 6. 后端 + 定时任务（可选）
-
-```bash
-# 后端 API（标记 + 审稿），systemd 用户级
 ln -sf "$PWD/deploy/api/arxiv-api.service" ~/.config/systemd/user/
 systemctl --user daemon-reload && systemctl --user enable --now arxiv-api
 
-# 每天 09:00 跑流水线
 crontab -e
 # 0 9 * * * /abs/path/to/repo/scripts/cron-wrapper.sh >> /abs/path/to/repo/logs/cron.log 2>&1
 ```
 
-生产部署（nginx / docker / HTTPS / basic auth）见 **[SELF-HOSTED.md](./SELF-HOSTED.md)**。
+生产部署（nginx / docker / HTTPS / 访问控制）见 **[SELF-HOSTED.md](./SELF-HOSTED.md)**，
+原理与配置详解见 **[docs/GUIDE.md](./docs/GUIDE.md)**。
 
-## 数据放哪
+## 你的数据在哪
 
-| 路径 | 内容 | 进 git？ |
+| 路径 | 内容 | 进 git |
 |---|---|---|
 | `data/` | 每日 jsonl 与 Markdown | 否 |
-| `var/store.sqlite3` | 你的标记 + 审稿结果 | **否** |
-| `.env.local` | 你的配置 | **否** |
-| `ai/research_focus.txt` | 你的研究方向 | **否**（仓库里只有 `.example.txt` 模板） |
-| `assets/trend-taxonomy.json` | 自举出来的子方向标签库 | **否**（仓库里只有 `.seed.json`） |
+| `var/store.sqlite3` | 标记 + 审稿结果 | 否 |
+| `.env.local` | 你的配置 | 否 |
+| `ai/research_focus.txt` | 你的研究方向 | 否（仓库里只有 `.example`） |
+| `assets/trend-taxonomy.json` | 自举的子方向标签库 | 否（仓库里只有 `.seed`） |
 
-标记和审稿结果按用户分行存（`user` 取自反向代理转发的 `X-Auth-User`），
-**每个人跑自己的实例、存自己的数据**，仓库里不含任何人的私人数据。
+**仓库里不含任何人的私人数据。** 每个人跑自己的实例、存自己的东西。
 
-## 目录
+> [!CAUTION]
+> 若您所在法域对学术数据有审查要求，谨慎运行本代码；任何二次分发版本必须履行合规审查
+> （包括但不限于原始论文合规性、AI 合规性）义务，否则一切法律后果由下游自行承担。
 
+---
+
+<a id="english"></a>
+
+# English
+
+## What this is
+
+Upstream [dw-dengwei/daily-arXiv-ai-enhanced](https://github.com/dw-dengwei/daily-arXiv-ai-enhanced)
+runs on GitHub Actions with a third-party LLM API key. This fork rewires it to
+**local cron + local CLI**: it drives the **Claude Code** or **Codex** CLI you have
+already logged into, using your own subscription quota. No API key to obtain,
+and every paper and review stays on your machine.
+
+| | Upstream | This fork |
+|---|---|---|
+| Runtime | GitHub Actions | local cron |
+| Model | DeepSeek / OpenAI API key | your logged-in Claude Code or Codex |
+| Cost | pay per token | your existing subscription, no API key |
+| Frontend | multi-page | single-page app, no reload between views |
+| Ordering | by category | ranked 0–10 against *your* research focus |
+| Extras | — | one-click review, cross-device bookmarks, trend charts, dark mode |
+
+## Features
+
+**Relevance ranking, not a category dump.** Write your research directions in
+`ai/research_focus.txt` — it is the *sole* basis for scoring. Every paper gets a
+0–10 score and a full five-section summary from the fast model; those above the
+threshold and in the day's top-K get rewritten by the strongest model. Edit the
+file and the next run picks it up — no code changes.
+
+**One-click review.** Two stages: a fast model picks the most likely venue from a
+fixed whitelist (NDSS / USENIX Security / ICSE / NeurIPS …), then **Quick / Normal /
+Deep** selects the model that writes the review as a reviewer *for that venue* —
+summary, strengths, weaknesses, detailed comments, questions, rating,
+recommendation, confidence. The tiers genuinely differ: on the same paper the fast
+model said "Minor revision, 8/10" while the mid tier said "Major revision, 4/10"
+and questioned a specific latency claim.
+
+**Trends.** Daily trends for primary categories, sub-directions and keywords, with
+a crosshair that reads out every series at once, toggleable legend and a table
+view. Sub-direction labels are bootstrapped: the model reuses existing labels and
+only creates a new one when nothing fits.
+
+**Bookmarks × reviews.** Both live in one sqlite file, so the bookmark list shows
+the recommendation, rating and venue inline, with a "reviewed only" filter.
+
+**Dark mode & mobile.** Black/white/green palette, follows the system or toggled
+manually; the theme is set before first paint so dark-mode users never see a
+white flash.
+
+## Quick start
+
+```bash
+# 1. Install and log into one CLI
+npm i -g @anthropic-ai/claude-code && claude     # https://claude.com/claude-code
+# or
+npm i -g @openai/codex && codex login            # https://developers.openai.com/codex/cli
+
+# 2. Install
+git clone https://github.com/springkill/daily-arXiv-ai-enhanced.git
+cd daily-arXiv-ai-enhanced
+python3 -m venv .venv && source .venv/bin/activate && pip install -e .
+
+# 3. Configure
+cp .env.local.example .env.local && $EDITOR .env.local
+cp ai/research_focus.example.txt ai/research_focus.txt && $EDITOR ai/research_focus.txt
+python3 ai/llm.py "reply with exactly: OK"       # smoke-test the CLI
+
+# 4. Run
+./run-local.sh
+python3 -m http.server 8000                      # http://localhost:8000
 ```
-ai/          llm.py（provider 抽象）、local_enhance.py（每日总结）、trend_tagger.py（子方向打标）
-daily_arxiv/ scrapy 爬虫
-js/ css/     单页前端（shell/router/store + 四个视图）
-deploy/      api/（后端 + sqlite）、web.conf、docker-compose.yml
-to_md/       jsonl → Markdown
+
+Bookmarks and reviews need the backend (optional — everything else works without it):
+
+```bash
+ln -sf "$PWD/deploy/api/arxiv-api.service" ~/.config/systemd/user/
+systemctl --user daemon-reload && systemctl --user enable --now arxiv-api
 ```
 
-# Plans
-See https://github.com/users/dw-dengwei/projects/3
+For production deployment see **[SELF-HOSTED.md](./SELF-HOSTED.md)**;
+for how it works and every config knob see **[docs/GUIDE.md](./docs/GUIDE.md)**.
 
-# Contributors
-Thanks to the following special contributors for contributing code, discovering bugs, and sharing useful ideas for this project!!!
+## Where your data lives
+
+`data/` (daily jsonl), `var/store.sqlite3` (bookmarks + reviews), `.env.local`,
+`ai/research_focus.txt` and `assets/trend-taxonomy.json` are **all gitignored** —
+the repository ships only `.example` / `.seed` templates and contains nobody's
+personal data.
+
+> [!CAUTION]
+> If your jurisdiction has censorship requirements for academic data, run this code
+> with caution; any redistributed version must fulfil its content review obligations
+> (including but not limited to the compliance of the original papers and of AI
+> output), otherwise all legal consequences are borne by the downstream party.
+
+---
+
+## 贡献者 / Contributors
+
+本项目的功能与代码绝大部分来自上游 [dw-dengwei/daily-arXiv-ai-enhanced](https://github.com/dw-dengwei/daily-arXiv-ai-enhanced)。
+感谢以下贡献者为原项目贡献代码、发现缺陷、提出想法：
+
+*Most of this project's functionality comes from upstream
+[dw-dengwei/daily-arXiv-ai-enhanced](https://github.com/dw-dengwei/daily-arXiv-ai-enhanced).
+Thanks to the following contributors of the original project for contributing code,
+discovering bugs, and sharing useful ideas:*
 <table>
   <tbody>
     <tr>
@@ -180,8 +320,11 @@ Thanks to the following special contributors for contributing code, discovering 
   </tbody>
 </table>
 
-# Acknowledgement
-We sincerely thank the following individuals and organizations for their promotion and support!!!
+## 致谢 / Acknowledgement
+
+感谢以下个人与组织对原项目的推荐与支持：
+
+*Sincere thanks to the following individuals and organizations for promoting and supporting the original project:*
 <table>
   <tbody>
     <tr>
@@ -201,10 +344,16 @@ We sincerely thank the following individuals and organizations for their promoti
   </tbody>
 </table>
 
+## 上游项目 / Upstream
 
-# Star history
+- 原项目 / Original: [dw-dengwei/daily-arXiv-ai-enhanced](https://github.com/dw-dengwei/daily-arXiv-ai-enhanced)
+- 路线图 / Roadmap: https://github.com/users/dw-dengwei/projects/3
 
-[![Stargazers over time](https://starchart.cc/dw-dengwei/daily-arXiv-ai-enhanced.svg?variant=adaptive)](https://starchart.cc/dw-dengwei/daily-arXiv-ai-enhanced)
+本分支只改了运行方式与前端，核心思路、爬虫与数据格式都来自上游。
+*This fork changes the runtime and the frontend; the core idea, the crawler and the
+data format all come from upstream.*
 
-# Buy me a coffee
-[here](./buy-me-a-coffee/README.md)
+## 许可 / License
+
+沿用上游许可证，见 [LICENSE](./LICENSE)。
+*Same license as upstream, see [LICENSE](./LICENSE).*

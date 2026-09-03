@@ -1,0 +1,23 @@
+# Daily arXiv 后端 API(systemd 用户级单元)—— 已标记 + 一键审稿
+#
+# 安装:
+#   mkdir -p ~/.config/systemd/user
+#   ln -sf <仓库>/deploy/api/arxiv-api.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload && systemctl --user enable --now arxiv-api
+#   sudo loginctl enable-linger $USER      # 没登录时也保持运行
+#
+# 必须跑在宿主机(不是容器):它要用本机 ~/.claude 的登录凭据调 claude CLI。
+[Unit]
+Description=Daily arXiv 后端 API(已标记 + 一键审稿)
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/GithubProject/daily-arXiv-ai-enhanced
+EnvironmentFile=-%h/GithubProject/daily-arXiv-ai-enhanced/.env.local
+ExecStart=/usr/bin/python3 %h/GithubProject/daily-arXiv-ai-enhanced/deploy/api/server.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

@@ -1,5 +1,6 @@
-# 自托管前端容器:由现有的 nginx-gateway 反代 arxiv.example.com → 此容器
-# 仅托管静态站点 + 本机每日生成的 data/。不暴露宿主端口,只在 gateway 网络内部可达。
+# 自托管前端容器。仅托管静态站点 + 本机每日生成的 data/。
+# 不发布宿主端口 —— 由你自己的反向代理(nginx / caddy / traefik)按域名接进来。
+# 若你没有现成的网关,把下面 networks 换成端口映射即可:ports: ["8080:80"]。
 services:
   web:
     image: nginx:1.27-alpine
@@ -12,21 +13,12 @@ services:
     networks:
       - gateway
 
-  # 跨设备"已标记论文"API(单用户,前置 nginx basic auth)。web 容器把 /api/ 反代到这里。
-  marks-api:
-    image: python:3.10-slim          # 本地已有镜像,避免拉取(Docker Hub 受 VPN 干扰)
-    container_name: daily-arxiv-marks
-    restart: unless-stopped
-    command: python /app/server.py
-    volumes:
-      - ./marks-api:/app:ro          # 目录挂载,避免单文件 inode 陷阱
-      - marks-data:/data             # 标记数据持久化(命名卷,不进 git、不被 nginx 托管)
-    networks:
-      - gateway
+  # 「已标记」+「一键审稿」的后端不在这里 —— 它跑在宿主机上(deploy/api/server.py,
+  # systemd 用户级单元 arxiv-api.service),因为要用本机已登录的 claude CLI。
+  # web 容器把 /api/ 反代到宿主机(见 web.conf 里的 proxy_pass,IP 按你的 docker 网桥改)。
 
 networks:
+  # 复用你自己已有的反代网络;没有就先 `docker network create gateway`
   gateway:
     external: true
 
-volumes:
-  marks-data:

@@ -1,5 +1,8 @@
 # 自托管部署说明 / Self-hosted Deployment
 
+> 这份文档描述的是一套**参考部署**。域名、IP、用户名都是占位符,
+> 按你自己的环境替换。只想本地跑起来的话看 [README](./README.md) 就够了。
+
 把本项目改造为:**每天定时抓取指定 arXiv 类别 → 用本机 Claude Code 逐篇总结 →
 按"研究关注点"相关性打分排序 → 自建 nginx 网关 + 域名 + 密码** 对外提供服务。
 分支:`self-hosted`。总结引擎是本机已认证的 Claude Code(headless),不调用任何第三方 LLM API key。
@@ -27,7 +30,7 @@ docker(deploy/docker-compose.yml): daily-arxiv-web (nginx:alpine)
 
 ~/services/nginx-gateway(已有反代):
   conf.d/arxiv.conf  →  proxy_pass http://daily-arxiv-web:80
-  arxiv.example.com(通配符证书 *.example.com)+ basic auth(.htpasswd_arxiv)
+  arxiv.example.com(通配符证书 *.example.com)+ basic auth(.htpasswd_arxiv   # <你自己的 htpasswd 文件>)
 ```
 
 ## 2. 访问
@@ -50,7 +53,7 @@ docker(deploy/docker-compose.yml): daily-arxiv-web (nginx:alpine)
 
 重置站点密码:
 ```bash
-docker run --rm httpd:alpine htpasswd -bn arxiv '新密码' > ~/services/nginx-gateway/.htpasswd_arxiv
+docker run --rm httpd:alpine htpasswd -bn arxiv '新密码' > ~/services/nginx-gateway/.htpasswd_arxiv   # <你自己的 htpasswd 文件>
 docker exec nginx-gateway nginx -s reload
 ```
 
@@ -91,10 +94,10 @@ cd ai && python local_enhance.py --data ../data/<日期>.jsonl
 mkdir -p ~/.config/systemd/user
 ln -sf "$PWD/deploy/api/arxiv-api.service" ~/.config/systemd/user/
 systemctl --user daemon-reload && systemctl --user enable --now arxiv-api
-curl -s -H 'X-Auth-User: arxiv' http://172.22.0.1:8801/api/health
+curl -s -H 'X-Auth-User: arxiv' http://<docker 网桥上的宿主地址,如 172.17.0.1>:8801/api/health
 ```
 
-监听 `172.22.0.1:8801`(gateway 网桥上的宿主地址,容器里的 nginx 能到、局域网到不了)。
+监听 `<docker 网桥上的宿主地址,如 172.17.0.1>:8801`(gateway 网桥上的宿主地址,容器里的 nginx 能到、局域网到不了)。
 本机调试用 `REVIEW_BIND=127.0.0.1 REVIEW_PORT=8802`。
 
 ### 路由

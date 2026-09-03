@@ -1,68 +1,130 @@
-# 🚀 daily-arXiv-ai-enhanced
+# daily-arXiv-ai-enhanced（自托管分支）
+
+每天自动抓 arXiv 新论文，用**你自己已登录的编码助手 CLI**（Claude Code 或 Codex）
+做中文总结、按你的研究方向打分排序，并提供一个单页阅读器：论文列表、一键审稿、
+跨设备标记、研究趋势统计。
+
+> 这是 [dw-dengwei/daily-arXiv-ai-enhanced](https://github.com/dw-dengwei/daily-arXiv-ai-enhanced)
+> 的自托管改造分支。上游走 GitHub Actions + 第三方 LLM API key；本分支改成
+> **本机 cron + 本机 CLI**，不需要任何 API key，数据和花费都在你自己这边。
 
 > [!CAUTION]
-> 若您所在法域对学术数据有审查要求，谨慎运行本代码；任何二次分发版本必须履行合规审查（包括但不限于原始论文合规性、AI合规性）义务，否则一切法律后果由下游自行承担。
+> 若您所在法域对学术数据有审查要求，谨慎运行本代码；任何二次分发版本必须履行合规审查
+> （包括但不限于原始论文合规性、AI 合规性）义务，否则一切法律后果由下游自行承担。
 
-> [!CAUTION]
-> If your jurisdiction has censorship requirements for academic data, run this code with caution; any secondary distribution version must remove the entrance accessible to China and fulfill the content review obligations, otherwise all legal consequences will be borne by the downstream.
+## 和上游的区别
 
+| | 上游 | 本分支 |
+|---|---|---|
+| 运行 | GitHub Actions | 本机 cron |
+| 模型 | DeepSeek / OpenAI API key | 你本机已登录的 **Claude Code 或 Codex** |
+| 花费 | 按 token 付费 | 用你自己的订阅额度，无需 API key |
+| 前端 | 多页 | 单页应用（hash 路由，切换不重载） |
+| 排序 | 按类别 | 按你写的研究方向打 0-10 分排序 |
+| 额外 | — | 一键审稿、跨设备标记、研究趋势图、明暗主题 |
 
-This innovative tool transforms how you stay updated with arXiv papers by combining automated crawling with AI-powered summarization.
+## 功能
 
+- **每日流水线**：爬取 → 近 7 天去重 → 全量打分与五段总结（fast 档）→ 高分论文用
+  deep 档重写 → 子方向打标 → 生成 Markdown。
+- **相关性排序**：`ai/research_focus.txt` 里写你的研究方向，它是打分的唯一依据。
+  改完下次跑自动生效，不用动代码。
+- **一键审稿**：两层。先用 fast 档从固定会议白名单里判定投稿会议，
+  再按「快速 / 正常 / 深度」选模型，以该会议审稿人的身份出结构化意见
+  （总评、优点、不足、详细意见、给作者的问题、评分、推荐、置信度）。
+- **跨设备标记**：标过的论文在任何设备上都能看到，并直接显示审稿结论。
+- **研究趋势**：主方向 / 子方向 / 关键词的每日趋势图，可切表格视图。
+- **明暗主题**：跟随系统或手动切换。
 
-## ✨ Key Features
+## 快速开始
 
-🎯 **Zero Infrastructure Required**
-- Leverages GitHub Actions and Pages - no server needed
-- Completely free to deploy and use
+### 1. 准备 LLM CLI（二选一）
 
-🤖 **Smart AI Summarization**
-- Daily paper crawling with DeepSeek-powered summaries
-- Cost-effective: Only ~0.2 CNY per day
+```bash
+# Claude Code —— https://claude.com/claude-code
+npm i -g @anthropic-ai/claude-code && claude      # 交互式登录一次
 
-💫 **Smart Reading Experience**
-- Personalized paper highlighting based on your interests
-- Cross-device compatibility (desktop & mobile)
-- Local preference storage for privacy
-- Flexible date range filtering
+# 或 Codex CLI —— https://developers.openai.com/codex/cli
+npm i -g @openai/codex && codex login
+```
 
-🧩 **SKILL System**
-- Plug-and-play skill modules for customizing paper filtering
+登录信息存在 `~/.claude` / `~/.codex`，本项目直接复用，**不需要任何 API key**。
 
-⚙️ **Easy Preference Export & Integration**
-- One-click copy in Settings to export your keywords and authors configuration
-- Seamlessly combine exported preferences with SKILL for reproducible and shareable setups
+### 2. 装依赖
 
-👉 **[Try it now!](https://dw-dengwei.github.io/daily-arXiv-ai-enhanced/)** - No installation required
+```bash
+git clone <你的 fork> && cd daily-arXiv-ai-enhanced
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e .        # 或 uv sync
+```
 
+### 3. 配置
 
+```bash
+cp .env.local.example .env.local
+$EDITOR .env.local          # 至少改 CATEGORIES 和 LLM_PROVIDER
+$EDITOR ai/research_focus.txt   # 写你的研究方向，这是打分的唯一依据
+```
 
-https://github.com/user-attachments/assets/b25712a4-fb8d-484f-863d-e8da6922f9d7
+自检一下 LLM 通不通：
 
+```bash
+python3 ai/llm.py "reply with exactly: OK"
+```
 
+### 4. 跑一次
 
+```bash
+./run-local.sh              # 爬取 → 总结 → 打标 → 出 Markdown
+```
 
-# How to use
-This repo will daily crawl arXiv papers about **cs.CV, cs.GR, cs.CL and cs.AI**, and use **DeepSeek** to summarize the papers in **Chinese**.
-If you wish to crawl other arXiv categories, use other LLMs, or other languages, please follow the instructions.
-Otherwise, you can directly use this repo in https://dw-dengwei.github.io/daily-arXiv-ai-enhanced/. Please star it if you like :)
+产物在 `data/<日期>_AI_enhanced_<语言>.jsonl`。
 
-**Instructions:**
-1. Fork this repo to your own account and delete my own information in [buy-me-a-coffee](./buy-me-a-coffee/README.md).
-2. Go to: your-own-repo -> Settings -> Secrets and variables -> Actions
-3. Go to Secrets. Secrets are encrypted and used for sensitive data
-4. Create two repository secrets named `OPENAI_API_KEY` and `OPENAI_BASE_URL`, and input corresponding values.
-5. [Optional] Set a password in `secrets.ACCESS_PASSWORD` if you do not wish others to access your page. (see https://github.com/dw-dengwei/daily-arXiv-ai-enhanced/pull/64)
-6. Go to Variables. Variables are shown as plain text and are used for non-sensitive data
-7. Create the following repository variables:
-   1. `CATEGORIES`: separate the categories with ",", such as "cs.CL, cs.CV"
-   2. `LANGUAGE`: such as "Chinese" or "English"
-   3. `MODEL_NAME`: such as "deepseek-chat"
-   4. `EMAIL`: your email for push to GitHub
-   5. `NAME`: your name for push to GitHub
-8. Go to your-own-repo -> Actions -> arXiv-daily-ai-enhanced
-9. You can manually click **Run workflow** to test if it works well (it may take about one hour). By default, this action will automatically run every day. You can modify it in `.github/workflows/run.yml`
-10. Set up GitHub pages: Go to your own repo -> Settings -> Pages. In `Build and deployment`, set `Source="Deploy from a branch"`, `Branch="main", "/(root)"`. Wait for a few minutes, go to https://\<username\>.github.io/daily-arXiv-ai-enhanced/. Please see this [issue](https://github.com/dw-dengwei/daily-arXiv-ai-enhanced/issues/14) for more precise instructions.
+### 5. 看页面
+
+任何静态服务器都能起：
+
+```bash
+python3 -m http.server 8000     # 然后打开 http://localhost:8000
+```
+
+「已标记」和「一键审稿」需要后端（见下）；不起后端的话其余功能照常可用。
+
+### 6. 后端 + 定时任务（可选）
+
+```bash
+# 后端 API（标记 + 审稿），systemd 用户级
+ln -sf "$PWD/deploy/api/arxiv-api.service" ~/.config/systemd/user/
+systemctl --user daemon-reload && systemctl --user enable --now arxiv-api
+
+# 每天 09:00 跑流水线
+crontab -e
+# 0 9 * * * /abs/path/to/repo/scripts/cron-wrapper.sh >> /abs/path/to/repo/logs/cron.log 2>&1
+```
+
+生产部署（nginx / docker / HTTPS / basic auth）见 **[SELF-HOSTED.md](./SELF-HOSTED.md)**。
+
+## 数据放哪
+
+| 路径 | 内容 | 进 git？ |
+|---|---|---|
+| `data/` | 每日 jsonl 与 Markdown | 否 |
+| `var/store.sqlite3` | 你的标记 + 审稿结果 | **否** |
+| `.env.local` | 你的配置 | **否** |
+| `ai/research_focus.txt` | 你的研究方向 | 是（自己改） |
+
+标记和审稿结果按用户分行存（`user` 取自反向代理转发的 `X-Auth-User`），
+**每个人跑自己的实例、存自己的数据**，仓库里不含任何人的私人数据。
+
+## 目录
+
+```
+ai/          llm.py（provider 抽象）、local_enhance.py（每日总结）、trend_tagger.py（子方向打标）
+daily_arxiv/ scrapy 爬虫
+js/ css/     单页前端（shell/router/store + 四个视图）
+deploy/      api/（后端 + sqlite）、web.conf、docker-compose.yml
+to_md/       jsonl → Markdown
+```
 
 # Plans
 See https://github.com/users/dw-dengwei/projects/3

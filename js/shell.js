@@ -7,6 +7,8 @@
 (function (global) {
   'use strict';
 
+  var t = I18n.t;   // 不用全局 t:compromise.js 会覆盖它
+
   var fp = null;   // flatpickr 实例
 
   function $(id) { return document.getElementById(id); }
@@ -23,9 +25,43 @@
     var pref = Theme.get();
     var btn = $('themeToggle');
     btn.innerHTML = THEME_ICON[pref] || THEME_ICON.system;
-    btn.title = { light: '浅色(点击切换)', dark: '深色(点击切换)', system: '跟随系统(点击切换)' }[pref];
+    btn.title = t('shell.theme.' + pref);
     document.querySelectorAll('#themeChoice .chip').forEach(function (c) {
       c.classList.toggle('is-on', c.dataset.themePref === pref);
+    });
+  }
+
+
+  /* ---------------------------------------------------------- 语言 --- */
+
+  function paintLangChoice() {
+    var cur = I18n.get();
+    ['langChoice', 'langPick'].forEach(function (id) {
+      var box = $(id);
+      if (!box) return;
+      box.innerHTML = '';
+      I18n.langs.forEach(function (l) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'chip' + (l.code === cur ? ' is-on' : '');
+        b.textContent = l.native;
+        b.dataset.lang = l.code;
+        b.addEventListener('click', function () {
+          I18n.set(l.code);          // 立即切换,不等确认按钮
+        });
+        box.appendChild(b);
+      });
+    });
+  }
+
+  /** 首次进入(从没选过语言)弹一次选择。选过就再也不弹。 */
+  function maybeAskLanguage() {
+    if (I18n.chosen()) return;
+    var m = $('langModal');
+    m.hidden = false;
+    $('langConfirm').addEventListener('click', function () {
+      I18n.set(I18n.get());          // 落盘,标记为"选过了"
+      m.hidden = true;
     });
   }
 
@@ -33,10 +69,10 @@
 
   function rangeLabel() {
     var s = Store.state.start, e = Store.state.end;
-    if (!s) return '选择日期';
+    if (!s) return t('shell.pickDate');
     if (s === e) return s;
     var n = Store.datesInRange().length;
-    return s.slice(5) + ' → ' + e.slice(5) + ' · ' + n + ' 天';
+    return s.slice(5) + ' → ' + e.slice(5) + ' · ' + n + t('shell.days');
   }
 
   function paintDate() {
@@ -147,10 +183,10 @@
   }
 
   function paintTabs(route) {
-    document.querySelectorAll('#mainTabs .tab').forEach(function (t) {
-      var on = t.dataset.route === route;
-      t.classList.toggle('is-active', on);
-      if (on) t.setAttribute('aria-current', 'page'); else t.removeAttribute('aria-current');
+    document.querySelectorAll('#mainTabs .tab').forEach(function (tab) {
+      var on = tab.dataset.route === route;
+      tab.classList.toggle('is-active', on);
+      if (on) tab.setAttribute('aria-current', 'page'); else tab.removeAttribute('aria-current');
     });
   }
 
@@ -158,6 +194,8 @@
 
   async function boot() {
     paintTheme();
+    paintLangChoice();
+    maybeAskLanguage();
     $('themeToggle').addEventListener('click', function () { Theme.cycle(); paintTheme(); });
     document.querySelectorAll('#themeChoice .chip').forEach(function (c) {
       c.addEventListener('click', function () { Theme.set(c.dataset.themePref); paintTheme(); });
@@ -179,11 +217,20 @@
 
     Store.on('rangechange', paintDate);
 
+    // 换语言:静态文案 i18n 自己刷了,这里补动态生成的那些 ——
+    // 日期胶囊、语言选中态、以及当前视图整块重画。
+    window.addEventListener('languagechange', function () {
+      paintTheme();
+      paintLangChoice();
+      paintDate();
+      if (Router.current) Router.rerender(Router.current);
+    });
+
     try {
       await Store.loadAvailableDates();
     } catch (e) {
       document.getElementById('paperContainer').innerHTML =
-        '<div class="empty-state"><p>数据列表加载失败</p><p>' + e.message + '</p></div>';
+        '<div class="empty-state"><p>' + t('shell.loadFailed') + '</p><p>' + e.message + '</p></div>';
       return;
     }
 
@@ -191,10 +238,10 @@
     initDatePicker();
     paintDate();
 
-    Router.register('papers',   { el: document.getElementById('view-papers'),   init: PapersView.init,   show: PapersView.show });
-    Router.register('marked',   { el: document.getElementById('view-marked'),   init: MarkedView.init,   show: MarkedView.show });
-    Router.register('stats',    { el: document.getElementById('view-stats'),    init: StatsView.init,    show: StatsView.show });
-    Router.register('settings', { el: document.getElementById('view-settings'), init: SettingsView.init, show: SettingsView.show });
+    Router.register('papers',   { el: document.getElementById('view-papers'),   init: PapersView.init,   show: PapersView.show,   rerender: PapersView.rerender });
+    Router.register('marked',   { el: document.getElementById('view-marked'),   init: MarkedView.init,   show: MarkedView.show,   rerender: MarkedView.show });
+    Router.register('stats',    { el: document.getElementById('view-stats'),    init: StatsView.init,    show: StatsView.show,    rerender: StatsView.rerender });
+    Router.register('settings', { el: document.getElementById('view-settings'), init: SettingsView.init, show: SettingsView.show, rerender: SettingsView.show });
 
     Router.onNavigate(function (route) { paintTabs(route); paintSubbar(route); });
     Router.start();
@@ -203,5 +250,5 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 
-  global.Shell = { paintDate: paintDate, syncPickerTo: syncPickerTo };
+  global.Shell = { paintDate: paintDate, syncPickerTo: syncPickerTo, paintLangChoice: paintLangChoice };
 })(window);

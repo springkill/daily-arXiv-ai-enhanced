@@ -19,6 +19,8 @@
 (function (global) {
   'use strict';
 
+  var t = I18n.t;   // 不用全局 t:compromise.js 会覆盖它
+
   var MAX_SERIES = 8;
 
   /* 颜色一律从 CSS 变量读,不写死 —— 深色模式用的是同一组色相的另一档步进
@@ -51,7 +53,7 @@
     kept.forEach(function (s, i) { s.color = PAL[i]; s.slot = i; });
     if (rest.length) {
       var n = kept.length ? kept[0].values.length : 0;
-      var merged = { key: '__other__', label: '其他 (' + rest.length + ')', color: cssVar('--c-other', '#8a8f98'),
+      var merged = { key: '__other__', label: t('chart.other', { n: rest.length }), color: cssVar('--c-other', '#8a8f98'),
                      slot: MAX_SERIES, isOther: true, members: rest.map(function (s) { return s.label; }),
                      values: new Array(n).fill(0) };
       rest.forEach(function (s) {
@@ -83,11 +85,11 @@
     host.classList.add('tc-host');
 
     if (!dates.length || !raw.length) {
-      host.appendChild(el('p', 'tc-empty', cfg.emptyText || '所选范围内暂无数据'));
+      host.appendChild(el('p', 'tc-empty', cfg.emptyText || t('chart.empty')));
       return;
     }
     if (dates.length === 1) {
-      host.appendChild(el('p', 'tc-empty', '趋势图需要至少两天的数据 —— 用上面的「时间范围」选一段'));
+      host.appendChild(el('p', 'tc-empty', t('chart.needTwoDays')));
       return;
     }
 
@@ -97,7 +99,7 @@
 
     // ---- DOM 骨架 ----
     var toolbar = el('div', 'tc-toolbar');
-    var viewBtn = el('button', 'tc-viewbtn', '表格视图');
+    var viewBtn = el('button', 'tc-viewbtn', t('chart.table'));
     viewBtn.type = 'button';
     viewBtn.setAttribute('aria-pressed', 'false');
     toolbar.appendChild(viewBtn);
@@ -105,8 +107,10 @@
     var plot = el('div', 'tc-plot');
     plot.tabIndex = 0;
     plot.setAttribute('role', 'img');
-    plot.setAttribute('aria-label', (cfg.title || '趋势图') + ':' + series.length + ' 个系列,' +
-                      dates[0] + ' 至 ' + dates[dates.length - 1]);
+    plot.setAttribute('aria-label', t('chart.aria', {
+      title: cfg.title || '', n: series.length,
+      from: dates[0], to: dates[dates.length - 1]
+    }));
     var tableWrap = el('div', 'tc-table-wrap');
     tableWrap.hidden = true;
     var legend = el('div', 'tc-legend');
@@ -153,7 +157,7 @@
       var t = el('table', 'tc-table');
       var thead = el('thead');
       var hr = el('tr');
-      hr.appendChild(el('th', 'tc-th-date', '日期'));
+      hr.appendChild(el('th', 'tc-th-date', t('chart.date')));
       series.forEach(function (s) {
         var th = el('th');
         var k = el('span', 'tc-key');
@@ -179,7 +183,7 @@
       var showTable = plot.hidden === false;
       plot.hidden = showTable;
       tableWrap.hidden = !showTable;
-      viewBtn.textContent = showTable ? '图表视图' : '表格视图';
+      viewBtn.textContent = showTable ? t('chart.chart') : t('chart.table');
       viewBtn.setAttribute('aria-pressed', showTable ? 'true' : 'false');
       if (!showTable) draw();
     });

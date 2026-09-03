@@ -41,9 +41,9 @@
   /* ---------------- 语言 ---------------- */
 
   function preferredLanguage() {
-    // 本部署只产出中文;保留分支是为了兼容上游同时有中英两份的仓库
-    var lang = navigator.language || navigator.userLanguage || '';
-    return lang.indexOf('en') === 0 ? 'English' : 'Chinese';
+    // 跟随界面语言。但总结的语言是每日流水线在生成时定的,
+    // 这里只能在"当天实际产出了哪几种"里挑,挑不到就回落。
+    return (global.I18n ? I18n.backendName() : 'Chinese');
   }
 
   function languageForDate(date) {
@@ -51,7 +51,16 @@
     if (!avail || !avail.length) return preferredLanguage();
     var want = preferredLanguage();
     if (avail.indexOf(want) >= 0) return want;
-    return avail.indexOf('Chinese') >= 0 ? 'Chinese' : avail[0];
+    return avail[0];        // 想要的那种没产出,用当天有的
+  }
+
+  /** 当前界面语言想要的总结,当天是否真的有。没有的话前端可以提示一句。 */
+  function summaryLanguageMatches() {
+    var want = preferredLanguage();
+    return datesInRange().every(function (d) {
+      var a = state.dateLanguageMap.get(d);
+      return !a || a.indexOf(want) >= 0;
+    });
   }
 
   /* ---------------- 日期清单 ---------------- */
@@ -166,6 +175,7 @@
     setRange: setRange,
     presetRange: presetRange,
     languageForDate: languageForDate,
-    preferredLanguage: preferredLanguage
+    preferredLanguage: preferredLanguage,
+    summaryLanguageMatches: summaryLanguageMatches
   };
 })(window);

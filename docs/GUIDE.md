@@ -16,6 +16,7 @@
 - [One-click review](#one-click-review)
 - [Storage](#storage)
 - [Frontend](#frontend)
+- [Internationalisation](#internationalisation)
 - [Configuration](#configuration)
 - [Gotchas](#gotchas)
 
@@ -136,6 +137,48 @@ follow the black/white/green theme — eight series squeezed into one hue are
 unreadable. Every chart ships a crosshair with a unified tooltip, a toggleable
 legend, a table view, and folds anything past eight series into "Other". Lines use
 `curveMonotoneX`, not a Bézier smooth that would invent peaks between data points.
+
+## Internationalisation
+
+The interface language lives in `localStorage` under `arxiv_lang`. If it has never
+been set the app shows a one-time picker; afterwards it is changed under
+**Settings → Language**. All strings live in `js/i18n.js`; look them up with
+`I18n.t('key', {vars})`.
+
+Three things are affected, in three different ways:
+
+| Affected | Takes effect | Why |
+|---|---|---|
+| Interface text | immediately | Pure frontend. Static HTML is tagged with `data-i18n` / `data-i18n-attr` and swapped by `applyStatic()`; dynamic parts are redrawn by each view's `rerender()` |
+| New reviews | next review | The frontend sends the current language with the request (whitelisted enum) and it goes into the prompt. Existing reviews keep the language they were written in |
+| Paper summaries | cannot change | Decided by the pipeline at generation time (`LANGUAGE` in `.env.local`). The frontend can only pick among the languages actually produced, and says so in the toolbar when it cannot honour your choice |
+
+### Two implementation traps
+
+**Do not export a bare global `t`.** `compromise.js` (used by the stats view for
+noun-phrase extraction) also claims the global `t`, and it loads *after*
+`js/i18n.js`, so it silently overwrites ours — the symptom is a chunk of JS source
+appearing in the UI. Each module binds `var t = I18n.t;` at the top of its IIFE,
+and no callback parameter may be named `t`.
+
+**Call `applyStatic()` once on first paint.** `js/i18n.js` runs in `<head>` before
+the DOM exists, so setting `<html lang>` is not enough; the static strings must be
+swapped again on `DOMContentLoaded`.
+
+### Review verdicts are stored as enums
+
+`recommend` is stored as `accept / minor / major / reject`, not localised text.
+Storing the translated string would leave half the UI in the old language after a
+switch, and would make sorting or filtering by verdict impossible. The prompt asks
+for that field in English enum form while the rest of the review is written in the
+target language. Legacy Chinese values are converted automatically by
+`store.migrate()` — in both the column and the `sections` JSON.
+
+### Adding a language
+
+Add an entry to `DICT`, to `CATEGORIES` and to `LANGS` in `js/i18n.js`, plus the
+same code to the `LANGS` whitelist in `deploy/api/server.py`. Missing keys fall
+back to English, and then to the key itself so gaps are obvious.
 
 ## Configuration
 

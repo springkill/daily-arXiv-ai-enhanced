@@ -12,7 +12,7 @@ Claude Code / Codex CLI — no third-party API key required.**
 ---
 
 <div align="center">
-<img src="images/ui-papers-dark.png" width="88%" alt="Paper list">
+<img src="images/ui-papers-en.png" width="88%" alt="Paper list">
 </div>
 
 ---
@@ -80,6 +80,28 @@ labels and only creates a new one when nothing fits.
 Bookmarks and reviews live in one sqlite file, so the bookmark list shows the
 recommendation, rating and venue inline instead of making you open each paper.
 There is a "reviewed only" filter.
+
+### Interface language
+
+<div align="center">
+<img src="images/ui-language.png" width="72%" alt="Language picker on first run">
+</div>
+
+On first run the app asks which language you want, and remembers it. Change it any
+time under **Settings → Language**. The choice drives three things, which take
+effect differently:
+
+| What | When it changes |
+|---|---|
+| Interface text | immediately |
+| New reviews | the next review you run is written in that language |
+| Paper summaries | fixed when the daily pipeline generated them |
+
+Summaries are the one that cannot change retroactively — they were written by the
+pipeline at crawl time. If the language you picked has no summaries for the range
+you are looking at, the app says so and tells you which `LANGUAGE` to set in
+`.env.local`. Existing reviews are kept in the language they were written in
+rather than being re-translated.
 
 ### Dark mode · works on phones
 

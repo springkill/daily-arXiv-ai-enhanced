@@ -7,14 +7,10 @@
 (function (global) {
   'use strict';
 
-  var PRIMARY_LABELS = {
-    'cs.CR': '安全与漏洞', 'cs.SE': '软件工程', 'cs.CL': '自然语言处理', 'cs.AI': 'AI',
-    'cs.LG': '机器学习', 'cs.DC': '分布式与并行计算', 'cs.AR': '硬件架构',
-    'cs.CV': '计算机视觉', 'cs.GR': '图形学', 'cs.DB': '数据库',
-    'cs.HC': '人机交互', 'cs.IT': '信息论', 'cs.NE': '神经计算', 'cs.PL': '编程语言',
-    'cs.CE': '计算工程', 'cs.RO': '机器人', 'cs.GT': '博弈论', 'cs.CY': '计算机与社会',
-    'cs.MA': '多智能体系统'
-  };
+  var t = I18n.t;   // 不用全局 t:compromise.js 会覆盖它
+
+  // 主方向显示名由 js/i18n.js 提供(随语言切换)
+
 
   var STOP = new Set(['the','is','at','which','and','or','in','to','for','of','with','by','on',
     'this','that','our','method','based','towards','via','multi','text','using','aware','data',
@@ -27,7 +23,7 @@
   var renderedRange = null;
   var papers = [];        // {date, primary, tags[], score, deep, title, summary, url, authors}
 
-  function primaryLabel(c) { return PRIMARY_LABELS[c] || c; }
+  function primaryLabel(c) { return I18n.category(c); }
 
   function subLabel(id) {
     if (taxonomy && Array.isArray(taxonomy.sub)) {
@@ -60,11 +56,11 @@
     });
 
     var freq = {};
-    Array.from(terms).forEach(function (t) {
-      var words = t.split(' ');
+    Array.from(terms).forEach(function (term) {
+      var words = term.split(' ');
       if (!words.every(function (w) { return w.length > 2; })) return;
       if (words.every(function (w) { return STOP.has(w); })) return;
-      freq[t] = (freq[t] || 0) + (t.indexOf(' ') >= 0 ? 1.5 : 1);   // 多词短语加权
+      freq[term] = (freq[term] || 0) + (term.indexOf(' ') >= 0 ? 1.5 : 1);   // 多词短语加权
     });
 
     return Object.keys(freq)
@@ -85,7 +81,7 @@
         if (res.ok) { taxonomy = await res.json(); return taxonomy; }
       } catch (e) { /* 试下一个 */ }
     }
-    console.warn('[stats] 标签库都取不到,子方向将显示 id');
+    console.warn('[stats] taxonomy unavailable; sub-directions will show raw ids');
     return taxonomy;
   }
 
@@ -128,10 +124,10 @@
       var dc = dateCat.get(p.date);
       if (dc) dc.set(p.primary, (dc.get(p.primary) || 0) + 1);
 
-      p.tags.forEach(function (t) {
-        subCount.set(t, (subCount.get(t) || 0) + 1);
+      p.tags.forEach(function (tag) {
+        subCount.set(tag, (subCount.get(tag) || 0) + 1);
         var ds = dateSub.get(p.date);
-        if (ds) ds.set(t, (ds.get(t) || 0) + 1);
+        if (ds) ds.set(tag, (ds.get(tag) || 0) + 1);
       });
 
       // 关键词按论文自己的日期归属。旧版用「下标 ÷ 平均每日篇数」反推日期,
@@ -171,14 +167,16 @@
     var perDay = dates.length ? Math.round(papers.length / dates.length) : 0;
 
     var tiles = [
-      { label: '论文总数', value: papers.length.toLocaleString(),
-        hint: dates.length + ' 天 · 日均 ' + perDay + ' 篇' },
-      { label: '高相关 (≥6分)', value: hit.toLocaleString(),
-        hint: scored.length ? Math.round(hit / scored.length * 100) + '% 的论文过线' : '本区间无评分' },
-      { label: '深度精读', value: deep.toLocaleString(),
-        hint: hit > deep ? ('有 ' + (hit - deep) + ' 篇过线但未入选') : '过线论文已全部精读' },
-      { label: '最活跃方向', value: topCat ? primaryLabel(topCat[0]) : '—',
-        hint: topCat ? (topCat[1] + ' 篇 · 占 ' + Math.round(topCat[1] / papers.length * 100) + '%') : '' }
+      { label: t('stats.total'), value: papers.length.toLocaleString(),
+        hint: t('stats.totalHint', { days: dates.length, perDay: perDay }) },
+      { label: t('stats.hit'), value: hit.toLocaleString(),
+        hint: scored.length ? t('stats.hitHint', { pct: Math.round(hit / scored.length * 100) })
+                            : t('stats.noScore') },
+      { label: t('stats.deep'), value: deep.toLocaleString(),
+        hint: hit > deep ? t('stats.deepHint', { n: hit - deep }) : t('stats.deepAll') },
+      { label: t('stats.topCat'), value: topCat ? primaryLabel(topCat[0]) : '—',
+        hint: topCat ? t('stats.topCatHint', { n: topCat[1],
+              pct: Math.round(topCat[1] / papers.length * 100) }) : '' }
     ];
 
     var kwTop = Array.from(agg.kwCount.entries())
@@ -188,18 +186,18 @@
 
     host.innerHTML =
       '<div class="stats-shell">' +
-        '<div class="stat-tiles">' + tiles.map(function (t) {
-          return '<div class="stat-tile"><div class="stat-tile-label">' + esc(t.label) + '</div>' +
-                 '<div class="stat-tile-value">' + esc(t.value) + '</div>' +
-                 '<div class="stat-tile-hint">' + esc(t.hint) + '</div></div>';
+        '<div class="stat-tiles">' + tiles.map(function (tile) {
+          return '<div class="stat-tile"><div class="stat-tile-label">' + esc(tile.label) + '</div>' +
+                 '<div class="stat-tile-value">' + esc(tile.value) + '</div>' +
+                 '<div class="stat-tile-hint">' + esc(tile.hint) + '</div></div>';
         }).join('') + '</div>' +
 
-        card('主方向趋势', '按论文首要 arXiv 类别统计每日篇数', 'primaryTrendChart') +
-        card('子方向趋势', '按自举标签库打的研究子方向统计;未打标的历史数据不计入', 'subTrendChart') +
-        card('关键词趋势', '标题中高频名词短语的每日出现次数', 'trendChart') +
+        card(t('stats.primaryTitle'), t('stats.primaryDesc'), 'primaryTrendChart') +
+        card(t('stats.subTitle'), t('stats.subDesc'), 'subTrendChart') +
+        card(t('stats.kwTitle'), t('stats.kwDesc'), 'trendChart') +
 
-        '<section class="chart-card"><div class="chart-head"><h2>热门关键词</h2>' +
-        '<p>点击任意关键词,在侧栏查看包含它的论文</p></div>' +
+        '<section class="chart-card"><div class="chart-head"><h2>' + esc(t('stats.kwListTitle')) + '</h2>' +
+        '<p>' + esc(t('stats.kwListDesc')) + '</p></div>' +
         '<div class="keyword-list" id="kwList">' + kwTop.map(function (k, i) {
           return '<button type="button" class="keyword-item" data-kw="' + esc(k[0]) + '">' +
                  '<span class="keyword-rank">' + (i + 1) + '</span>' +
@@ -214,19 +212,19 @@
     });
 
     TrendChart.render(document.getElementById('primaryTrendChart'), {
-      dates: dates, valueLabel: '篇', title: '主方向趋势',
+      dates: dates, valueLabel: t('stats.unitPapers'), title: t('stats.primaryTitle'),
       series: series(agg.catCount, agg.dateCat, dates, primaryLabel)
     });
     TrendChart.render(document.getElementById('subTrendChart'), {
-      dates: dates, valueLabel: '篇', title: '子方向趋势',
+      dates: dates, valueLabel: t('stats.unitPapers'), title: t('stats.subTitle'),
       // 子方向是长尾(现有 87 个标签),「其他」的合计会把真实系列压成贴地直线。
       // 默认收起,图例上仍带计数可随时点开。
       collapseOtherByDefault: true,
-      emptyText: '所选范围内的论文还没有子方向标签(ai/trend_tagger.py 打标后才有)',
+      emptyText: t('stats.subEmpty'),
       series: series(agg.subCount, agg.dateSub, dates, subLabel)
     });
     TrendChart.render(document.getElementById('trendChart'), {
-      dates: dates, valueLabel: '次', title: '关键词趋势',
+      dates: dates, valueLabel: t('stats.unitTimes'), title: t('stats.kwTitle'),
       series: series(agg.kwCount, agg.dateKw, dates).sort(function (a, b) {
         return b.values.reduce(add, 0) - a.values.reduce(add, 0);
       }).slice(0, 8)
@@ -246,7 +244,7 @@
       return (p.title + ' ' + p.summary).toLowerCase().indexOf(q) >= 0;
     }).slice(0, 100);
 
-    document.getElementById('selectedKeyword').textContent = kw + ' · ' + hits.length + ' 篇';
+    document.getElementById('selectedKeyword').textContent = kw + ' · ' + t('papers.count', { n: hits.length });
     document.getElementById('relatedPapers').innerHTML = hits.length
       ? hits.map(function (p) {
           return '<article class="paper-ref">' +
@@ -255,7 +253,7 @@
                  '<div class="paper-ref-meta">' + esc(p.date) + ' · ' + esc(p.primary) + '</div>' +
                  '<div class="paper-ref-summary">' + esc(p.summary) + '</div></article>';
         }).join('')
-      : '<div class="empty-state"><p>没有找到相关论文</p></div>';
+      : '<div class="empty-state"><p>' + esc(t('stats.noRelated')) + '</p></div>';
     document.getElementById('paperSidebar').classList.add('is-open');
   }
 
@@ -265,11 +263,11 @@
     var dates = Store.datesInRange();
     var host = document.getElementById('papersList');
     if (!dates.length) {
-      host.innerHTML = '<div class="empty-state"><p>这个日期范围内没有数据</p></div>';
+      host.innerHTML = '<div class="empty-state"><p>' + esc(t('stats.noData')) + '</p></div>';
       return;
     }
     if (!host.innerHTML) {
-      host.innerHTML = '<div class="loading-container"><div class="loading-spinner"></div><p>统计中…</p></div>';
+      host.innerHTML = '<div class="loading-container"><div class="loading-spinner"></div><p>' + esc(t('stats.computing')) + '</p></div>';
     } else {
       host.classList.add('is-refetching');
     }
@@ -317,5 +315,8 @@
     if (renderedRange !== Store.state.start + '~' + Store.state.end) await load();
   }
 
-  global.StatsView = { init: init, show: show };
+  /** 换语言后重画(数据不用重取,标签和文案全变)。 */
+  function rerender() { if (papers.length) render(); }
+
+  global.StatsView = { init: init, show: show, rerender: rerender };
 })(window);

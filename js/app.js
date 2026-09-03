@@ -11,6 +11,8 @@
 (function (global) {
   'use strict';
 
+  var t = I18n.t;   // 不用全局 t:compromise.js 会覆盖它
+
   var state = {
     papersByCategory: {},   // 类别 -> 论文数组
     allPapers: [],
@@ -47,8 +49,8 @@
   function highlight(text, terms, cls) {
     var out = esc(text);
     if (!terms || !terms.length) return out;
-    terms.filter(Boolean).forEach(function (t) {
-      var re = new RegExp('(' + escRe(esc(t)) + ')', 'gi');
+    terms.filter(Boolean).forEach(function (term) {
+      var re = new RegExp('(' + escRe(esc(term)) + ')', 'gi');
       out = out.replace(re, '<mark class="' + (cls || 'highlight-match') + '">$1</mark>');
     });
     return out;
@@ -123,7 +125,7 @@
 
     var label = document.createElement('span');
     label.className = 'subbar-label';
-    label.textContent = '我的关注';
+    label.textContent = t('papers.myFocus');
     box.appendChild(label);
 
     state.userKeywords.forEach(function (k) {
@@ -161,8 +163,8 @@
     var cats = Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; });
 
     el.categoryFilter.innerHTML = '';
-    el.categoryFilter.appendChild(mkCat('all', '全部', state.allPapers.length));
-    cats.forEach(function (c) { el.categoryFilter.appendChild(mkCat(c, c, counts[c])); });
+    el.categoryFilter.appendChild(mkCat('all', t('papers.all'), state.allPapers.length));
+    cats.forEach(function (c) { el.categoryFilter.appendChild(mkCat(c, I18n.category(c), counts[c])); });
   }
 
   function mkCat(key, label, count) {
@@ -221,7 +223,7 @@
     var c = el.container;
     c.innerHTML = '';
     if (!papers.length) {
-      c.innerHTML = '<div class="empty-state"><p>这个范围内没有论文</p></div>';
+      c.innerHTML = '<div class="empty-state"><p>' + esc(t('papers.emptyRange')) + '</p></div>';
       updateCount();
       return;
     }
@@ -251,7 +253,7 @@
       var s = document.createElement('div');
       s.id = 'loadMoreSentinel';
       s.className = 'load-more';
-      s.textContent = '已显示 ' + state.shown + ' / ' + state.visible.length + ' 篇,继续滚动加载…';
+      s.textContent = t('papers.loadMore', { shown: state.shown, total: state.visible.length });
       el.container.appendChild(s);
       observer.observe(s);
     }
@@ -260,7 +262,7 @@
 
   function updateCount() {
     var n = document.getElementById('paperCount');
-    if (n) n.textContent = state.visible.length + ' 篇';
+    if (n) n.textContent = t('papers.count', { n: state.visible.length });
   }
 
   // rootMargin 提前 600px 触发,滚到底之前下一批就已经就位
@@ -278,13 +280,13 @@
     if (typeof p.relevance_score === 'number') {
       var s = p.relevance_score;
       var cls = s >= 8 ? 'rel-high' : (s >= 6 ? 'rel-mid' : 'rel-low');
-      badge = '<span class="relevance-badge ' + cls + '" title="' + esc(p.relevance_reason || '相关性评分') + '">'
-            + '相关 ' + s + '/10' + (p.deep ? ' ★' : '')
+      badge = '<span class="relevance-badge ' + cls + '" title="' + esc(p.relevance_reason || t('papers.relevanceTitle')) + '">'
+            + t('papers.relevance', { score: s }) + (p.deep ? ' ★' : '')
             + (p.topic ? ' · ' + esc(p.topic) : '') + '</span>';
     }
 
     d.innerHTML =
-      (p.isMatched ? '<div class="match-badge" title="匹配当前筛选"></div>' : '') +
+      (p.isMatched ? '<div class="match-badge" title="' + esc(t('papers.matched')) + '"></div>' : '') +
       '<div class="paper-card-index">' + (i + 1) + '</div>' +
       '<div class="paper-card-header">' +
         '<h3 class="paper-card-title">' + highlight(p.title, kwTerms) + '</h3>' +
@@ -299,7 +301,7 @@
           '<div class="footer-left">' + markBtnHtml(p) +
             '<span class="paper-card-date">' + fmtDate(p.date) + '</span>' +
           '</div>' +
-          '<span class="paper-card-link">详情 →</span>' +
+          '<span class="paper-card-link">' + esc(t('papers.details')) + '</span>' +
         '</div>' +
       '</div>';
 
@@ -317,7 +319,7 @@
   function markBtnHtml(p) {
     var on = global.Marks && Marks.isMarked(p.id);
     return '<button class="mark-btn' + (on ? ' is-marked' : '') + '" data-id="' + esc(p.id) +
-           '" type="button" title="标记/取消标记" aria-label="标记">' + STAR + '</button>';
+           '" type="button" title="' + esc(t('papers.mark')) + '" aria-label="' + esc(t('papers.markLabel')) + '">' + STAR + '</button>';
   }
 
   function wireMark(btn, p) {
@@ -351,8 +353,8 @@
     document.getElementById('modalTitle').innerHTML = highlight(p.title, kw);
 
     var sections = [
-      ['研究动机', p.motivation], ['核心方法', p.method],
-      ['主要结果', p.result], ['结论与意义', p.conclusion]
+      [t('detail.motivation'), p.motivation], [t('detail.method'), p.method],
+      [t('detail.result'), p.result], [t('detail.conclusion'), p.conclusion]
     ].filter(function (s) { return s[1]; })
      .map(function (s) {
        return '<div class="paper-section"><h4>' + s[0] + '</h4><p>' + highlight(s[1], kw) + '</p></div>';
@@ -365,9 +367,9 @@
 
     document.getElementById('modalBody').innerHTML =
       meta +
-      '<div class="paper-section"><h4>TL;DR</h4><p>' + highlight(p.summary, kw) + '</p></div>' +
+      '<div class="paper-section"><h4>' + esc(t('detail.tldr')) + '</h4><p>' + highlight(p.summary, kw) + '</p></div>' +
       '<div class="paper-sections" style="margin-top:16px">' + sections + '</div>' +
-      (p.details ? '<div class="paper-section" style="margin-top:16px"><h4>英文原摘要</h4>' +
+      (p.details ? '<div class="paper-section" style="margin-top:16px"><h4>' + esc(t('detail.abstract')) + '</h4>' +
                    '<p class="original-abstract">' + highlight(p.details, kw) + '</p></div>' : '');
 
     document.getElementById('paperLink').href = p.url;
@@ -405,7 +407,7 @@
 
   /* ============================================================ 一键审稿 */
 
-  var MODE_NAME = { quick: '快速', normal: '正常', deep: '深度' };
+  function modeName(m) { return t('review.' + m); }
   var MODE_RANK = { quick: 1, normal: 2, deep: 3 };   // 同一篇有多份时,显示最深的那份
   var reviewBusy = false;
   var reviewCache = {};        // id -> { quick|normal|deep: 结果 }
@@ -480,8 +482,8 @@
     status.className = 'review-status';
     status.innerHTML = '<span class="loading-spinner"></span>';
     status.appendChild(document.createTextNode(
-      MODE_NAME[mode] + '审稿中…先让 Haiku 判定投稿会议,再按模式选模型出意见' +
-      (mode === 'deep' ? '。深度模式走 Opus,可能要几分钟。' : '')));
+      t('review.running', { mode: modeName(mode) }) +
+      (mode === 'deep' ? t('review.runningDeep') : '')));
     panel.appendChild(status);
     panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 
@@ -491,7 +493,8 @@
       var res = await fetch('/api/review', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: p.id, date: p.date, mode: mode })
+        // lang 也发过去:审稿意见要用当前界面语言写。它同样是白名单枚举。
+        body: JSON.stringify({ id: p.id, date: p.date, mode: mode, lang: I18n.get() })
       });
       var data = await res.json().catch(function () { return {}; });
       if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
@@ -508,7 +511,7 @@
       panel.innerHTML = '';
       var err = document.createElement('div');
       err.className = 'review-status is-error';
-      err.textContent = '审稿失败:' + e.message;
+      err.textContent = t('review.failed') + e.message;
       panel.appendChild(err);
     } finally {
       reviewBusy = false;
@@ -525,33 +528,34 @@
     head.className = 'review-head';
     var venue = document.createElement('span');
     venue.className = 'review-venue';
-    venue.textContent = d.venue || '未知会议';
+    venue.textContent = d.venue || t('review.unknownVenue');
     head.appendChild(venue);
     var meta = document.createElement('span');
     meta.className = 'review-meta';
-    meta.textContent = MODE_NAME[d.mode] + ' · ' + (d.model || '') +
-                       (d.cached ? ' · 缓存结果' : (d.elapsed ? ' · ' + d.elapsed + 's' : ''));
+    meta.textContent = modeName(d.mode) + ' · ' + (d.model || '') +
+                       (d.cached ? t('review.cached') : (d.elapsed ? ' · ' + d.elapsed + 's' : ''));
     head.appendChild(meta);
     panel.appendChild(head);
 
     var verdict = document.createElement('div');
     verdict.className = 'review-verdict';
-    verdict.appendChild(box('推荐', s.recommend || '—', recClass(s.recommend)));
-    verdict.appendChild(box('评分', s.rating != null ? s.rating + ' / 10' : '—', ''));
-    verdict.appendChild(box('置信度', s.confidence != null ? s.confidence + ' / 5' : '—', ''));
+    verdict.appendChild(box(t('review.recommend'),
+      s.recommend ? t('review.rec.' + s.recommend) : '—', recClass(s.recommend)));
+    verdict.appendChild(box(t('review.rating'), s.rating != null ? s.rating + ' / 10' : '—', ''));
+    verdict.appendChild(box(t('review.confidence'), s.confidence != null ? s.confidence + ' / 5' : '—', ''));
     panel.appendChild(verdict);
 
-    if (s.summary) panel.appendChild(para('总体评价', s.summary));
-    panel.appendChild(list('优点', s.strengths));
-    panel.appendChild(list('不足', s.weaknesses, true));
-    panel.appendChild(list('详细意见', s.detailed));
-    panel.appendChild(list('给作者的问题', s.questions));
+    if (s.summary) panel.appendChild(para(t('review.summary'), s.summary));
+    panel.appendChild(list(t('review.strengths'), s.strengths));
+    panel.appendChild(list(t('review.weaknesses'), s.weaknesses, true));
+    panel.appendChild(list(t('review.detailed'), s.detailed));
+    panel.appendChild(list(t('review.questions'), s.questions));
   }
 
   function recClass(r) {
-    if (r === '接收') return 'v-accept';
-    if (r === '拒稿') return 'v-reject';
-    if (r === '小修' || r === '大修') return 'v-revise';
+    if (r === 'accept') return 'v-accept';
+    if (r === 'reject') return 'v-reject';
+    if (r === 'minor' || r === 'major') return 'v-revise';
     return '';
   }
 
@@ -579,9 +583,9 @@
     if (!items || !items.length) { sec.hidden = true; return sec; }
     var h = document.createElement('h4'); h.textContent = title;
     var ul = document.createElement('ul');
-    items.forEach(function (t) {
+    items.forEach(function (item) {
       var li = document.createElement('li');
-      li.textContent = t;
+      li.textContent = item;
       ul.appendChild(li);
     });
     sec.appendChild(h); sec.appendChild(ul);
@@ -593,7 +597,7 @@
   async function loadRange() {
     var dates = Store.datesInRange();
     if (!dates.length) {
-      el.container.innerHTML = '<div class="empty-state"><p>这个日期范围内没有数据</p></div>';
+      el.container.innerHTML = '<div class="empty-state"><p>' + esc(t('papers.emptyDates')) + '</p></div>';
       return;
     }
     // 保留上一屏并降透明度,不用骨架屏 —— 骨架屏会让布局跳一下
@@ -611,8 +615,31 @@
 
     state.renderedRange = Store.state.start + '~' + Store.state.end;
     el.container.classList.remove('is-refetching');
+    paintLangNotice();
     renderCategoryChips();
     render();
+  }
+
+  /**
+   * 总结的语言是每日流水线生成时定的,不是界面语言能改的。
+   * 两者不一致时明确说一句,免得用户以为切了语言总结没跟着变是 bug。
+   */
+  function paintLangNotice() {
+    var note = document.getElementById('summaryLangNote');
+    if (Store.summaryLanguageMatches()) { if (note) note.remove(); return; }
+
+    var slot = document.querySelector('.subbar-slot[data-for="papers"]');
+    var want = I18n.backendName();
+    var actual = Store.languageForDate(Store.datesInRange()[0] || '');
+    if (!note) {
+      note = document.createElement('span');
+      note.id = 'summaryLangNote';
+      note.className = 'subbar-note subbar-warn';
+      slot.appendChild(note);
+    }
+    note.textContent = t('papers.langNotice', {
+      have: t('lang.' + actual), want: t('lang.' + want)
+    });
   }
 
   /* ================================================================ 视图 */
@@ -642,7 +669,7 @@
 
     el.sortToggle.addEventListener('click', function () {
       state.sort = state.sort === 'relevance' ? 'date' : 'relevance';
-      el.sortToggle.textContent = state.sort === 'relevance' ? '相关度' : '日期';
+      el.sortToggle.textContent = t(state.sort === 'relevance' ? 'papers.sortRelevance' : 'papers.sortDate');
       render();
     });
 
@@ -695,5 +722,15 @@
     if (state.renderedRange !== Store.state.start + '~' + Store.state.end) await loadRange();
   }
 
-  global.PapersView = { init: init, show: show, render: render };
+  /** 换语言后整块重画:类别名、筛选片、卡片文案都变了。 */
+  function rerender() {
+    if (el.sortToggle) {
+      el.sortToggle.textContent = t(state.sort === 'relevance' ? 'papers.sortRelevance' : 'papers.sortDate');
+    }
+    renderFilterChips();
+    renderCategoryChips();
+    render();
+  }
+
+  global.PapersView = { init: init, show: show, render: render, rerender: rerender };
 })(window);

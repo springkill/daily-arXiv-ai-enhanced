@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS reviews (
     user       TEXT    NOT NULL,
     id         TEXT    NOT NULL,
     mode       TEXT    NOT NULL,       -- quick | normal | deep
+    lang       TEXT    NOT NULL DEFAULT 'zh-CN',   -- 审稿意见的语言
     venue      TEXT,
     model      TEXT,
     title      TEXT,
@@ -62,7 +63,7 @@ CREATE TABLE IF NOT EXISTS reviews (
     confidence INTEGER,
     elapsed    REAL,
     created_at INTEGER NOT NULL,
-    PRIMARY KEY (user, id, mode)
+    PRIMARY KEY (user, id, mode, lang)
 );
 
 CREATE INDEX IF NOT EXISTS idx_marks_user_time  ON marks(user, marked_at DESC);
@@ -83,8 +84,73 @@ def conn():
         c.execute("PRAGMA journal_mode=WAL")    # 读写并发,审稿在跑时前端照样能读
         c.execute("PRAGMA foreign_keys=ON")
         c.executescript(SCHEMA)
+        migrate(c)
         _local.conn = c
     return c
+
+
+LEGACY_REC = {"接收": "accept", "小修": "minor", "大修": "major", "拒稿": "reject"}
+
+
+def migrate(c):
+    """就地升级老库。两处历史遗留:
+       1. reviews 表原本没有 lang 列(那时只出中文)
+       2. recommend 原本存的是中文,现在改成语言无关的枚举
+    """
+    cols = {r["name"] for r in c.execute("PRAGMA table_info(reviews)")}
+    if not cols:
+        return                       # 新库,SCHEMA 已经建好
+    # 主键要从 (user,id,mode) 变成 (user,id,mode,lang)。ALTER TABLE 改不了主键,
+    # 而 ON CONFLICT 的目标列必须有对应的唯一索引 —— 只加列不重建表,写入就会报
+    # "ON CONFLICT clause does not match any PRIMARY KEY or UNIQUE constraint"。
+    pk = c.execute("SELECT sql FROM sqlite_master WHERE name='reviews'").fetchone()
+    needs_rebuild = pk and "PRIMARY KEY (user, id, mode, lang)" not in pk["sql"]
+    if needs_rebuild:
+        if "lang" not in cols:
+            c.execute("ALTER TABLE reviews ADD COLUMN lang TEXT NOT NULL DEFAULT 'zh-CN'")
+        c.executescript("""
+            PRAGMA foreign_keys=OFF;
+            BEGIN;
+            CREATE TABLE reviews__new (
+                user TEXT NOT NULL, id TEXT NOT NULL, mode TEXT NOT NULL,
+                lang TEXT NOT NULL DEFAULT 'zh-CN',
+                venue TEXT, model TEXT, title TEXT, sections TEXT NOT NULL,
+                rating INTEGER, recommend TEXT, confidence INTEGER,
+                elapsed REAL, created_at INTEGER NOT NULL,
+                PRIMARY KEY (user, id, mode, lang)
+            );
+            INSERT OR IGNORE INTO reviews__new
+                SELECT user, id, mode, lang, venue, model, title, sections,
+                       rating, recommend, confidence, elapsed, created_at FROM reviews;
+            DROP TABLE reviews;
+            ALTER TABLE reviews__new RENAME TO reviews;
+            CREATE INDEX IF NOT EXISTS idx_reviews_user_id ON reviews(user, id);
+            COMMIT;
+            PRAGMA foreign_keys=ON;
+        """)
+    # recommend 既存在独立列里,也嵌在 sections JSON 里。两处都要迁 ——
+    # 前端读的是 sections 里的那份,只改列的话页面上还是中文。
+    rows = c.execute("SELECT rowid, recommend, sections FROM reviews").fetchall()
+    changed = 0
+    for r in rows:
+        col = LEGACY_REC.get(r["recommend"], r["recommend"])
+        try:
+            sec = json.loads(r["sections"])
+        except Exception:
+            sec = None
+        sec_rec = sec.get("recommend") if isinstance(sec, dict) else None
+        new_sec_rec = LEGACY_REC.get(sec_rec, sec_rec)
+        if col == r["recommend"] and new_sec_rec == sec_rec:
+            continue
+        if isinstance(sec, dict):
+            sec["recommend"] = new_sec_rec
+            c.execute("UPDATE reviews SET recommend=?, sections=? WHERE rowid=?",
+                      (col, json.dumps(sec, ensure_ascii=False), r["rowid"]))
+        else:
+            c.execute("UPDATE reviews SET recommend=? WHERE rowid=?", (col, r["rowid"]))
+        changed += 1
+    if changed:
+        c.commit()
 
 
 def now_ms():
@@ -139,7 +205,7 @@ def mark_list(user):
     if ids:
         q = ",".join("?" * len(ids))
         for rv in c.execute(
-            f"SELECT id, mode, venue, model, rating, recommend, confidence "
+            f"SELECT id, mode, lang, venue, model, rating, recommend, confidence "
             f"FROM reviews WHERE user=? AND id IN ({q})", (user, *ids)
         ):
             prev = reviews.get(rv["id"])
@@ -170,42 +236,51 @@ def mark_count(user):
 # 审稿
 # --------------------------------------------------------------------------- #
 
-def review_put(user, pid, mode, result):
+def review_put(user, pid, mode, lang, result):
     sec = result.get("sections") or {}
     c = conn()
     c.execute(
-        """INSERT INTO reviews (user, id, mode, venue, model, title, sections,
+        """INSERT INTO reviews (user, id, mode, lang, venue, model, title, sections,
                                 rating, recommend, confidence, elapsed, created_at)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
-           ON CONFLICT(user, id, mode) DO UPDATE SET
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+           ON CONFLICT(user, id, mode, lang) DO UPDATE SET
              venue=excluded.venue, model=excluded.model, title=excluded.title,
              sections=excluded.sections, rating=excluded.rating,
              recommend=excluded.recommend, confidence=excluded.confidence,
              elapsed=excluded.elapsed, created_at=excluded.created_at""",
-        (user, pid, mode, result.get("venue"), result.get("model"), result.get("title"),
+        (user, pid, mode, lang, result.get("venue"), result.get("model"), result.get("title"),
          json.dumps(sec, ensure_ascii=False), sec.get("rating"), sec.get("recommend"),
          sec.get("confidence"), result.get("elapsed"), now_ms()),
     )
     c.commit()
 
 
-def review_get(user, pid, mode):
+def review_get(user, pid, mode, lang):
     r = conn().execute(
-        "SELECT * FROM reviews WHERE user=? AND id=? AND mode=?", (user, pid, mode)
+        "SELECT * FROM reviews WHERE user=? AND id=? AND mode=? AND lang=?",
+        (user, pid, mode, lang)
     ).fetchone()
     return _review_row(r) if r else None
 
 
-def review_all(user, pid):
-    rows = conn().execute(
-        "SELECT * FROM reviews WHERE user=? AND id=?", (user, pid)
-    ).fetchall()
+def review_all(user, pid, lang=None):
+    """某篇论文已存的审稿结果,按模式归并。
+    指定 lang 时只返回该语言的;不指定则每个模式取一条(语言不限),
+    这样切了界面语言、旧语言的结果也不会凭空消失。"""
+    if lang:
+        rows = conn().execute(
+            "SELECT * FROM reviews WHERE user=? AND id=? AND lang=?", (user, pid, lang)
+        ).fetchall()
+    else:
+        rows = conn().execute(
+            "SELECT * FROM reviews WHERE user=? AND id=?", (user, pid)
+        ).fetchall()
     return {r["mode"]: _review_row(r) for r in rows}
 
 
 def _review_row(r):
     return {
-        "id": r["id"], "mode": r["mode"], "venue": r["venue"], "model": r["model"],
+        "id": r["id"], "mode": r["mode"], "lang": r["lang"], "venue": r["venue"], "model": r["model"],
         "title": r["title"], "elapsed": r["elapsed"], "created_at": r["created_at"],
         "sections": json.loads(r["sections"]),
     }

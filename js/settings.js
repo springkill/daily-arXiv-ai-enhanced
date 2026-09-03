@@ -7,6 +7,8 @@
 (function (global) {
   'use strict';
 
+  var t = I18n.t;   // 不用全局 t:compromise.js 会覆盖它
+
   var kw = [];
   var au = [];
 
@@ -23,8 +25,8 @@
   }
 
   function paint() {
-    paintList('selectedKeywords', 'emptyTagMessage', kw, '还没有关键词。在下面添加。', false);
-    paintList('selectedAuthors', 'emptyAuthorMessage', au, '还没有作者。在下面添加。', true);
+    paintList('selectedKeywords', 'emptyTagMessage', kw, t('settings.kwEmpty'), false);
+    paintList('selectedAuthors', 'emptyAuthorMessage', au, t('settings.auEmpty'), true);
   }
 
   function paintList(hostId, emptyId, arr, emptyText, isAuthor) {
@@ -46,7 +48,7 @@
       x.type = 'button';
       x.className = 'remove-tag';
       x.textContent = '×';
-      x.title = '移除';
+      x.title = t('settings.remove');
       x.addEventListener('click', function () {
         var i = arr.indexOf(v);
         if (i >= 0) arr.splice(i, 1);
@@ -69,15 +71,15 @@
 
   function copy(arr, what) {
     var text = arr.join(', ');
-    var done = function () { toast(what + '已复制(' + arr.length + ' 项)'); };
+    var done = function () { toast(t('settings.copied', { what: what, n: arr.length })); };
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(done, function () { toast('复制失败'); });
+      navigator.clipboard.writeText(text).then(done, function () { toast(t('settings.copyFailed')); });
     } else {
       // 非安全上下文下 clipboard API 不可用,退回 execCommand
       var ta = document.createElement('textarea');
       ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
       document.body.appendChild(ta); ta.select();
-      try { document.execCommand('copy'); done(); } catch (e) { toast('复制失败'); }
+      try { document.execCommand('copy'); done(); } catch (e) { toast(t('settings.copyFailed')); }
       document.body.removeChild(ta);
     }
   }
@@ -109,16 +111,16 @@
       if (e.key === 'Enter') { e.preventDefault(); addFrom('authorInput', au); }
     });
 
-    document.getElementById('copyKeywords').addEventListener('click', function () { copy(kw, '关键词'); });
-    document.getElementById('copyAuthors').addEventListener('click', function () { copy(au, '作者'); });
+    document.getElementById('copyKeywords').addEventListener('click', function () { copy(kw, t('settings.kwWord')); });
+    document.getElementById('copyAuthors').addEventListener('click', function () { copy(au, t('settings.auWord')); });
 
     // 增删即时生效并已落盘,「保存」只是给一个明确的确认
     document.getElementById('saveSettings').addEventListener('click', function () {
-      persist(); toast('已保存');
+      persist(); toast(t('settings.saved'));
     });
     document.getElementById('resetSettings').addEventListener('click', function () {
-      if (!confirm('清空所有关注的关键词和作者?')) return;
-      kw = []; au = []; persist(); paint(); toast('已恢复默认');
+      if (!confirm(t('settings.resetConfirm'))) return;
+      kw = []; au = []; persist(); paint(); toast(t('settings.resetDone'));
     });
   }
 

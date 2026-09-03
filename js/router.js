@@ -65,6 +65,14 @@
     });
   }
 
+  /** 强制让某个视图重新渲染(换语言后用)。 */
+  async function rerender(name) {
+    var v = routes[name];
+    if (!v || !v.inited) return;
+    if (v.rerender) { try { await v.rerender(); } catch (e) { console.error(e); } }
+    else if (v.show) { try { await v.show(); } catch (e) { console.error(e); } }
+  }
+
   function navigate(name) {
     if (location.hash === '#/' + name) go(name, { force: false });
     else location.hash = '#/' + name;
@@ -80,6 +88,7 @@
     register: register,
     start: start,
     navigate: navigate,
+    rerender: rerender,
     onNavigate: onNavigate,
     get current() { return current; }
   };

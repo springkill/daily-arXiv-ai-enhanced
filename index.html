@@ -10,8 +10,10 @@
     <meta name="theme-color" content="#ffffff">
     <link rel="manifest" href="manifest.webmanifest">
 
-    <!-- 必须同步、且排在样式表之前:首屏绘制前定好主题,否则深色用户会闪一帧白 -->
+    <!-- 必须同步、且排在样式表之前:首屏绘制前定好主题与语言,
+         否则深色用户会闪一帧白、非中文用户会闪一下中文 -->
     <script src="js/theme.js"></script>
+    <script src="js/i18n.js"></script>
 
     <link rel="stylesheet" href="css/theme.css">
     <link rel="stylesheet" href="css/app.css">
@@ -27,7 +29,7 @@
     <script>Auth.requireAuth();</script>
 </head>
 <body>
-<a class="skip-link" href="#viewRoot">跳到主要内容</a>
+<a class="skip-link" href="#viewRoot" data-i18n="shell.skip">Skip to main content</a>
 
 <header class="topbar">
     <div class="topbar-inner">
@@ -37,19 +39,19 @@
         </a>
 
         <nav class="tabs" id="mainTabs" aria-label="主导航">
-            <a class="tab" href="#/papers"   data-route="papers">论文</a>
-            <a class="tab" href="#/marked"   data-route="marked">已标记<span class="tab-badge" id="markedCount" data-zero="true">0</span></a>
-            <a class="tab" href="#/stats"    data-route="stats">统计</a>
-            <a class="tab" href="#/settings" data-route="settings">设置</a>
+            <a class="tab" href="#/papers"   data-route="papers" data-i18n="nav.papers">Papers</a>
+            <a class="tab" href="#/marked"   data-route="marked"><span data-i18n="nav.marked">Saved</span><span class="tab-badge" id="markedCount" data-zero="true">0</span></a>
+            <a class="tab" href="#/stats"    data-route="stats" data-i18n="nav.stats">Trends</a>
+            <a class="tab" href="#/settings" data-route="settings" data-i18n="nav.settings">Settings</a>
         </nav>
 
         <div class="topbar-right">
-            <button id="dateChip" class="date-chip" type="button" title="选择日期或日期范围">
+            <button id="dateChip" class="date-chip" type="button" data-i18n-attr="title:shell.dateTitle">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V6a2 2 0 00-2-2zm0 16H5V9h14v11z"/></svg>
-                <span id="dateChipLabel">加载中…</span>
+                <span id="dateChipLabel" data-i18n="shell.dateLoading">Loading…</span>
             </button>
-            <button id="themeToggle" class="icon-btn" type="button" title="切换主题" aria-label="切换主题"></button>
-            <button id="logoutButton" class="icon-btn" type="button" title="退出登录" hidden>
+            <button id="themeToggle" class="icon-btn" type="button" data-i18n-attr="title:shell.themeToggle,aria-label:shell.themeToggle"></button>
+            <button id="logoutButton" class="icon-btn" type="button" data-i18n-attr="title:shell.logout" hidden>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.59L17 17l5-5-5-5zM4 5h8V3H4a2 2 0 00-2 2v14a2 2 0 002 2h8v-2H4V5z"/></svg>
             </button>
         </div>
@@ -59,16 +61,16 @@
     <div class="subbar" id="subbar">
         <div class="subbar-slot" data-for="papers">
             <div class="chip-row" id="categoryFilter" role="group" aria-label="分类筛选">
-                <button class="chip is-on" data-category="all">全部</button>
+                <button class="chip is-on" data-category="all" data-i18n="papers.all">All</button>
             </div>
             <div class="subbar-right">
                 <div class="search-box">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10.5 3a7.5 7.5 0 105.07 13.07l3.68 3.68a1 1 0 001.41-1.41l-3.68-3.68A7.5 7.5 0 0010.5 3zm0 2a5.5 5.5 0 110 11 5.5 5.5 0 010-11z"/></svg>
-                    <input id="textSearchInput" type="search" placeholder="搜索标题、摘要、作者…" aria-label="搜索论文">
-                    <button id="textSearchClear" class="clear-x" type="button" title="清空" hidden>&times;</button>
+                    <input id="textSearchInput" type="search" data-i18n-attr="placeholder:papers.search,aria-label:papers.searchLabel">
+                    <button id="textSearchClear" class="clear-x" type="button" data-i18n-attr="title:papers.clear" hidden>&times;</button>
                 </div>
                 <span class="subbar-note" id="paperCount"></span>
-                <button id="sortToggle" class="chip" type="button" title="排序方式:相关度 / 日期">相关度</button>
+                <button id="sortToggle" class="chip" type="button" data-i18n-attr="title:papers.sortTitle" data-i18n="papers.sortRelevance">Relevance</button>
             </div>
         </div>
         <div class="subbar-slot" data-for="papers-filters">
@@ -76,11 +78,11 @@
         </div>
         <div class="subbar-slot" data-for="stats">
             <div class="chip-row" id="statsPresets" role="group" aria-label="时间范围">
-                <span class="subbar-label">时间范围</span>
-                <button type="button" class="chip" data-days="7">近 7 天</button>
-                <button type="button" class="chip" data-days="14">近 14 天</button>
-                <button type="button" class="chip" data-days="30">近 30 天</button>
-                <button type="button" class="chip" data-days="0">全部</button>
+                <span class="subbar-label" data-i18n="stats.range">Time range</span>
+                <button type="button" class="chip" data-days="7" data-i18n="date.last7">Last 7 days</button>
+                <button type="button" class="chip" data-days="14" data-i18n="date.last14">Last 14 days</button>
+                <button type="button" class="chip" data-days="30" data-i18n="date.last30">Last 30 days</button>
+                <button type="button" class="chip" data-days="0" data-i18n="date.all">All</button>
             </div>
             <div class="subbar-right"><span class="subbar-note" id="statsRangeNote"></span></div>
         </div>
@@ -92,19 +94,19 @@
     <!-- ============ 论文 ============ -->
     <section id="view-papers" class="view" hidden>
         <div class="paper-container" id="paperContainer">
-            <div class="loading-container"><div class="loading-spinner"></div><p>加载论文中…</p></div>
+            <div class="loading-container"><div class="loading-spinner"></div><p data-i18n="papers.loading">Loading papers…</p></div>
         </div>
     </section>
 
     <!-- ============ 已标记 ============ -->
     <section id="view-marked" class="view" hidden>
         <div class="view-head">
-            <h1>已标记的论文</h1>
-            <p>在任意设备上标记的论文都会出现在这里,点星号可取消标记。</p>
+            <h1 data-i18n="marked.title">Saved papers</h1>
+            <p data-i18n="marked.desc">Papers you saved on any device show up here.</p>
         </div>
         <div class="marked-toolbar" id="markedToolbar"></div>
         <div id="markedList" class="marked-list">
-            <div class="empty-state">加载中…</div>
+            <div class="empty-state" data-i18n="shell.dateLoading">Loading…</div>
         </div>
     </section>
 
@@ -116,84 +118,108 @@
     <!-- ============ 设置 ============ -->
     <section id="view-settings" class="view" hidden>
         <div class="view-head">
-            <h1>设置</h1>
-            <p>关注的关键词和作者会在论文列表里高亮,并可用于筛选。保存在本机浏览器。</p>
+            <h1 data-i18n="settings.title">Settings</h1>
+            <p data-i18n="settings.desc">Keywords and authors you follow are highlighted and can be used to filter.</p>
         </div>
 
         <div class="settings-grid">
             <section class="panel">
                 <div class="panel-head">
-                    <h2>关注的关键词</h2>
-                    <button id="copyKeywords" class="btn btn-ghost btn-sm" type="button">复制</button>
+                    <h2 data-i18n="settings.keywords">Keywords you follow</h2>
+                    <button id="copyKeywords" class="btn btn-ghost btn-sm" type="button" data-i18n="settings.copy">Copy</button>
                 </div>
                 <div class="panel-body">
                     <div class="selected-tags" id="selectedKeywords">
-                        <div class="empty-tag-message" id="emptyTagMessage">还没有关键词。在下面添加。</div>
+                        <div class="empty-tag-message" id="emptyTagMessage" data-i18n="settings.kwEmpty">No keywords yet.</div>
                     </div>
                     <div class="tag-input-row">
-                        <input type="text" id="keywordInput" class="input" placeholder="输入关键词后回车…">
-                        <button id="addKeyword" class="btn btn-primary" type="button">添加</button>
+                        <input type="text" id="keywordInput" class="input" data-i18n-attr="placeholder:settings.kwPlaceholder">
+                        <button id="addKeyword" class="btn btn-primary" type="button" data-i18n="settings.add">Add</button>
                     </div>
                 </div>
             </section>
 
             <section class="panel">
                 <div class="panel-head">
-                    <h2>关注的作者</h2>
-                    <button id="copyAuthors" class="btn btn-ghost btn-sm" type="button">复制</button>
+                    <h2 data-i18n="settings.authors">Authors you follow</h2>
+                    <button id="copyAuthors" class="btn btn-ghost btn-sm" type="button" data-i18n="settings.copy">Copy</button>
                 </div>
                 <div class="panel-body">
                     <div class="selected-tags" id="selectedAuthors">
-                        <div class="empty-tag-message" id="emptyAuthorMessage">还没有作者。在下面添加。</div>
+                        <div class="empty-tag-message" id="emptyAuthorMessage" data-i18n="settings.auEmpty">No authors yet.</div>
                     </div>
                     <div class="tag-input-row">
-                        <input type="text" id="authorInput" class="input" placeholder="输入作者名后回车…">
-                        <button id="addAuthor" class="btn btn-primary" type="button">添加</button>
+                        <input type="text" id="authorInput" class="input" data-i18n-attr="placeholder:settings.auPlaceholder">
+                        <button id="addAuthor" class="btn btn-primary" type="button" data-i18n="settings.add">Add</button>
                     </div>
                 </div>
             </section>
 
             <section class="panel">
-                <div class="panel-head"><h2>外观</h2></div>
+                <div class="panel-head"><h2 data-i18n="settings.language">Language</h2></div>
+                <div class="panel-body">
+                    <div class="radio-row" id="langChoice" role="radiogroup" data-i18n-attr="aria-label:settings.language"></div>
+                    <p class="panel-hint" data-i18n="settings.languageHint"></p>
+                </div>
+            </section>
+
+            <section class="panel">
+                <div class="panel-head"><h2 data-i18n="settings.appearance">Appearance</h2></div>
                 <div class="panel-body">
                     <div class="radio-row" id="themeChoice" role="radiogroup" aria-label="主题">
-                        <button class="chip" type="button" data-theme-pref="light">浅色</button>
-                        <button class="chip" type="button" data-theme-pref="dark">深色</button>
-                        <button class="chip" type="button" data-theme-pref="system">跟随系统</button>
+                        <button class="chip" type="button" data-theme-pref="light" data-i18n="settings.light">Light</button>
+                        <button class="chip" type="button" data-theme-pref="dark" data-i18n="settings.dark">Dark</button>
+                        <button class="chip" type="button" data-theme-pref="system" data-i18n="settings.system">System</button>
                     </div>
                 </div>
             </section>
         </div>
 
         <div class="settings-actions">
-            <button id="resetSettings" class="btn btn-ghost" type="button">恢复默认</button>
-            <button id="saveSettings" class="btn btn-primary" type="button">保存设置</button>
+            <button id="resetSettings" class="btn btn-ghost" type="button" data-i18n="settings.reset">Reset</button>
+            <button id="saveSettings" class="btn btn-primary" type="button" data-i18n="settings.save">Save</button>
         </div>
     </section>
 </main>
 
 <footer class="site-footer">
-    <p>内容由 AI 生成,请自行甄别。&copy; 2025 daily-arXiv-ai-enhanced</p>
+    <p><span data-i18n="footer.note">Generated by AI — verify before relying on it.</span> &copy; 2025 daily-arXiv-ai-enhanced</p>
 </footer>
+
+<!-- ============ 首次进入:选择语言 ============ -->
+<div class="modal-scrim" id="langModal" hidden>
+    <div class="modal modal-sm" role="dialog" aria-modal="true" aria-labelledby="langTitle">
+        <div class="modal-head"><h2 id="langTitle" data-i18n="welcome.title">Choose your language</h2></div>
+        <div class="modal-body">
+            <p class="hint" data-i18n="welcome.desc"></p>
+            <div class="radio-row" id="langPick" style="margin-top:14px"></div>
+        </div>
+        <div class="modal-foot">
+            <div class="modal-foot-right">
+                <button id="langConfirm" class="btn btn-primary" type="button" data-i18n="welcome.confirm">Continue</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- ============ 日期选择弹层(论文页与统计页共用) ============ -->
 <div class="modal-scrim" id="datePickerModal" hidden>
     <div class="modal modal-sm" role="dialog" aria-modal="true" aria-labelledby="dpTitle">
         <div class="modal-head">
-            <h2 id="dpTitle">选择日期</h2>
-            <button class="icon-btn" id="dpClose" type="button" aria-label="关闭">&times;</button>
+            <h2 id="dpTitle" data-i18n="date.title">Select date</h2>
+            <button class="icon-btn" id="dpClose" type="button" data-i18n-attr="aria-label:date.close">&times;</button>
         </div>
         <div class="modal-body">
-            <input type="text" id="datepicker" placeholder="选择日期" data-input>
+            <input type="text" id="datepicker" data-i18n-attr="placeholder:shell.pickDate" data-input>
             <label class="switch-row">
-                <span>日期范围</span>
+                <span data-i18n="date.range">Date range</span>
                 <span class="switch"><input type="checkbox" id="dateRangeMode"><span class="switch-track"></span></span>
             </label>
             <div class="chip-row" id="datePresets">
-                <button type="button" class="chip" data-days="1">最新一天</button>
-                <button type="button" class="chip" data-days="7">近 7 天</button>
-                <button type="button" class="chip" data-days="30">近 30 天</button>
-                <button type="button" class="chip" data-days="0">全部</button>
+                <button type="button" class="chip" data-days="1" data-i18n="date.latest">Latest day</button>
+                <button type="button" class="chip" data-days="7" data-i18n="date.last7">Last 7 days</button>
+                <button type="button" class="chip" data-days="30" data-i18n="date.last30">Last 30 days</button>
+                <button type="button" class="chip" data-days="0" data-i18n="date.all">All</button>
             </div>
         </div>
     </div>
@@ -203,17 +229,17 @@
 <div class="modal-scrim" id="paperModal" hidden>
     <div class="modal modal-lg" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
         <div class="modal-head">
-            <h2 id="modalTitle">详情</h2>
-            <button id="closeModal" class="icon-btn" type="button" aria-label="关闭">&times;</button>
+            <h2 id="modalTitle" data-i18n="detail.title">Details</h2>
+            <button id="closeModal" class="icon-btn" type="button" data-i18n-attr="aria-label:date.close">&times;</button>
         </div>
         <div class="modal-body" id="modalBody"></div>
         <div class="modal-foot">
             <div class="modal-foot-left">
                 <div class="review-launch" role="group" aria-label="一键审稿">
-                    <span class="review-launch-label">一键审稿</span>
-                    <button class="chip" type="button" data-review-mode="quick"  title="Haiku · 约 20 秒">快速</button>
-                    <button class="chip" type="button" data-review-mode="normal" title="Sonnet · 约 1 分钟">正常</button>
-                    <button class="chip" type="button" data-review-mode="deep"   title="Opus · 数分钟">深度</button>
+                    <span class="review-launch-label" data-i18n="review.label">Review</span>
+                    <button class="chip" type="button" data-review-mode="quick"  data-i18n-attr="title:review.quickTitle" data-i18n="review.quick">Quick</button>
+                    <button class="chip" type="button" data-review-mode="normal" data-i18n-attr="title:review.normalTitle" data-i18n="review.normal">Normal</button>
+                    <button class="chip" type="button" data-review-mode="deep"   data-i18n-attr="title:review.deepTitle" data-i18n="review.deep">Deep</button>
                 </div>
                 <span id="paperPosition" class="hint"></span>
             </div>
@@ -230,23 +256,23 @@
 <aside id="paperSidebar" class="sidebar">
     <div class="sidebar-head">
         <h3 id="selectedKeyword"></h3>
-        <button class="icon-btn close-sidebar" type="button" aria-label="关闭">&times;</button>
+        <button class="icon-btn close-sidebar" type="button" data-i18n-attr="aria-label:date.close">&times;</button>
     </div>
     <div class="sidebar-body" id="relatedPapers"></div>
 </aside>
 
-<button id="backToTop" class="back-to-top" type="button" title="回到顶部" hidden>
+<button id="backToTop" class="back-to-top" type="button" data-i18n-attr="title:shell.backToTop" hidden>
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M7 14l5-5 5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
 </button>
 
-<script src="js/store.js"></script>
-<script src="js/router.js"></script>
+<script src="js/store.js?v=2.2.0"></script>
+<script src="js/router.js?v=2.2.0"></script>
 <script src="js/marks.js"></script>
-<script src="js/trend-chart.js"></script>
-<script src="js/app.js?v=2.1.0"></script>
-<script src="js/statistic.js?v=2.0.0"></script>
-<script src="js/settings.js?v=2.0.0"></script>
-<script src="js/marked-page.js?v=2.1.0"></script>
-<script src="js/shell.js?v=2.0.0"></script>
+<script src="js/trend-chart.js?v=2.2.0"></script>
+<script src="js/app.js?v=2.2.0"></script>
+<script src="js/statistic.js?v=2.2.0"></script>
+<script src="js/settings.js?v=2.2.0"></script>
+<script src="js/marked-page.js?v=2.2.0"></script>
+<script src="js/shell.js?v=2.2.0"></script>
 </body>
 </html>

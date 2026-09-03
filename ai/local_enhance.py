@@ -21,37 +21,31 @@ import argparse
 import json
 import os
 import re
-import shutil
-import subprocess
 import sys
 import threading
-import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+import llm
 
 # --------------------------------------------------------------------------- #
 # 配置 (全部可用环境变量覆盖) / Config (override via env)
 # --------------------------------------------------------------------------- #
 HERE = os.path.dirname(os.path.abspath(__file__))
 
-CLAUDE_BIN          = os.environ.get("CLAUDE_BIN") or shutil.which("claude") \
-                      or "/home/user/.nvm/versions/node/v24.13.0/bin/claude"
-PREFILTER_MODEL     = os.environ.get("PREFILTER_MODEL", "haiku")
-DEEP_MODEL          = os.environ.get("DEEP_MODEL", "opus")
+# 模型不再写死:走 ai/llm.py 的三档 tier,具体模型由 LLM_PROVIDER +
+# CLAUDE_MODEL_* / CODEX_MODEL_* 决定。见 .env.local.example。
+PREFILTER_TIER      = "fast"
+DEEP_TIER           = "deep"
 RELEVANCE_THRESHOLD = int(os.environ.get("RELEVANCE_THRESHOLD", "6"))
 DEEP_TOP_K          = int(os.environ.get("DEEP_TOP_K", "60"))
 PREFILTER_BATCH     = int(os.environ.get("PREFILTER_BATCH", "12"))
 PREFILTER_WORKERS   = int(os.environ.get("PREFILTER_WORKERS", "4"))
 DEEP_WORKERS        = int(os.environ.get("DEEP_WORKERS", "3"))
-CALL_TIMEOUT        = int(os.environ.get("CLAUDE_CALL_TIMEOUT", "240"))
-CALL_RETRIES        = int(os.environ.get("CLAUDE_CALL_RETRIES", "3"))
-RETRY_BACKOFF       = int(os.environ.get("CLAUDE_RETRY_BACKOFF", "8"))  # 秒,退避以熬过 claude 自动更新窗口
+CALL_TIMEOUT        = int(os.environ.get("LLM_TIMEOUT", "240"))
 LANGUAGE            = os.environ.get("LANGUAGE", "Chinese")
 RESEARCH_FOCUS_FILE = os.environ.get("RESEARCH_FOCUS_FILE", os.path.join(HERE, "research_focus.txt"))
 
 # 累计成本统计(若走订阅,这是名义值,仍可用于观察额度消耗)
-_cost_lock = threading.Lock()
-_total_cost = 0.0
-_call_count = 0
 
 
 def log(msg):
@@ -80,68 +74,22 @@ def _strip_fence(text: str) -> str:
     return t.strip()
 
 
-def _resolve_bin() -> str:
-    """调用时解析 claude 二进制:若配置路径不存在(如刚好被自动更新换掉),回退 which。"""
-    if os.path.exists(CLAUDE_BIN):
-        return CLAUDE_BIN
-    return shutil.which("claude") or CLAUDE_BIN
+def llm_json(prompt: str, tier: str):
+    """返回解析后的 JSON 对象/数组(短结构化字段用);失败返回 None。"""
+    try:
+        return json.loads(_strip_fence(llm.generate(prompt, tier=tier, timeout=CALL_TIMEOUT, cwd=HERE)))
+    except Exception as e:  # noqa
+        log(f"  ⚠️ LLM(JSON) 调用失败({tier}): {type(e).__name__}: {e}")
+        return None
 
 
-def _run_once(prompt: str, model: str) -> str:
-    """跑一次 headless claude,返回模型输出的原始文本(Claude Code 的 JSON 信封很可靠,
-    我们只信任它取出内层 result)。失败抛异常。"""
-    global _total_cost, _call_count
-    args = [
-        _resolve_bin(), "-p", prompt,
-        "--output-format", "json",
-        "--model", model,
-        "--setting-sources", "",            # 不加载任何 settings(砍掉插件/skill 开销)
-        "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}',  # 不加载任何 MCP
-    ]
-    # 关键:禁用 claude 自动更新,避免长时间批量运行中途换掉二进制导致 FileNotFoundError
-    env = {**os.environ, "DISABLE_AUTOUPDATER": "1",
-           "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"}
-    p = subprocess.run(
-        args, capture_output=True, text=True, env=env,
-        stdin=subprocess.DEVNULL, cwd=HERE, timeout=CALL_TIMEOUT,
-    )
-    if p.returncode != 0:
-        raise RuntimeError(f"rc={p.returncode} stderr={p.stderr[-200:]}")
-    outer = json.loads(p.stdout)
-    if outer.get("is_error"):
-        raise RuntimeError(f"is_error subtype={outer.get('subtype')}")
-    with _cost_lock:
-        _total_cost += float(outer.get("total_cost_usd") or 0.0)
-        _call_count += 1
-    return outer.get("result", "")
-
-
-def claude_json(prompt: str, model: str):
-    """返回解析后的 JSON 对象/数组(短结构化字段用);失败返回 None。解析失败会重试。"""
-    last_err = ""
-    for attempt in range(CALL_RETRIES + 1):
-        try:
-            return json.loads(_strip_fence(_run_once(prompt, model)))
-        except Exception as e:  # noqa
-            last_err = f"{type(e).__name__}: {e}"
-            if attempt < CALL_RETRIES:
-                time.sleep(RETRY_BACKOFF * (attempt + 1))
-    log(f"  ⚠️ claude(JSON) 调用失败({model}, {CALL_RETRIES + 1} 次): {last_err}")
-    return None
-
-
-def claude_text(prompt: str, model: str):
+def llm_text(prompt: str, tier: str):
     """返回模型原始文本(长文本用,避免 JSON 转义问题);失败返回 None。"""
-    last_err = ""
-    for attempt in range(CALL_RETRIES + 1):
-        try:
-            return _run_once(prompt, model)
-        except Exception as e:  # noqa
-            last_err = f"{type(e).__name__}: {e}"
-            if attempt < CALL_RETRIES:
-                time.sleep(RETRY_BACKOFF * (attempt + 1))
-    log(f"  ⚠️ claude(text) 调用失败({model}, {CALL_RETRIES + 1} 次): {last_err}")
-    return None
+    try:
+        return llm.generate(prompt, tier=tier, timeout=CALL_TIMEOUT, cwd=HERE)
+    except Exception as e:  # noqa
+        log(f"  ⚠️ LLM(text) 调用失败({tier}): {type(e).__name__}: {e}")
+        return None
 
 
 # --------------------------------------------------------------------------- #
@@ -219,7 +167,7 @@ def analyze_batch(focus: str, batch):
 
 论文列表(共 {len(batch)} 篇):
 {plist}"""
-    raw = claude_text(prompt, PREFILTER_MODEL)
+    raw = llm_text(prompt, PREFILTER_TIER)
     out = {}
     if not raw:
         return out
@@ -241,7 +189,7 @@ def analyze_batch(focus: str, batch):
 
 def run_analyze(focus: str, papers):
     batches = [papers[i:i + PREFILTER_BATCH] for i in range(0, len(papers), PREFILTER_BATCH)]
-    log(f"Stage 1 全量分析+总结: {len(papers)} 篇 → {len(batches)} 批 (每批{PREFILTER_BATCH}, {PREFILTER_WORKERS}并发, 模型={PREFILTER_MODEL})")
+    log(f"Stage 1 全量分析+总结: {len(papers)} 篇 → {len(batches)} 批 (每批{PREFILTER_BATCH}, {PREFILTER_WORKERS}并发, 档位={PREFILTER_TIER})")
     analyzed = {}
     done = 0
     with ThreadPoolExecutor(max_workers=PREFILTER_WORKERS) as ex:
@@ -304,7 +252,7 @@ def deep_summarize(focus: str, paper):
 标题: {paper.get("title", "")}
 作者: {", ".join(paper.get("authors", [])) if isinstance(paper.get("authors"), list) else paper.get("authors", "")}
 摘要: {paper.get("summary", "")}"""
-    raw = claude_text(prompt, DEEP_MODEL)
+    raw = llm_text(prompt, DEEP_TIER)
     if not raw:
         return dict(DEEP_FALLBACK)
     parsed = _parse_sections(raw)
@@ -312,7 +260,7 @@ def deep_summarize(focus: str, paper):
 
 
 def run_deep(focus: str, selected):
-    log(f"Stage 2 Opus 深度精修: {len(selected)} 篇 ({DEEP_WORKERS}并发, 模型={DEEP_MODEL})")
+    log(f"Stage 2 Opus 深度精修: {len(selected)} 篇 ({DEEP_WORKERS}并发, 模型={DEEP_TIER})")
     results = {}
     done = 0
     with ThreadPoolExecutor(max_workers=DEEP_WORKERS) as ex:
@@ -391,8 +339,10 @@ def main():
 
     deep_n = sum(1 for p in ranked if p.get("deep"))
     log(f"✅ 完成: 写出 {len(ranked)} 篇 → {target}")
-    log(f"   每篇都有完整五段总结;其中 {deep_n} 篇为 Opus 精修, 其余 {len(ranked) - deep_n} 篇为 {PREFILTER_MODEL} 版")
-    log(f"   claude 调用 {_call_count} 次, 累计成本 ≈ ${_total_cost:.4f}")
+    st = llm.stats()
+    log(f"   每篇都有完整五段总结;其中 {deep_n} 篇走 deep 档精修, 其余 {len(ranked) - deep_n} 篇为 fast 档")
+    cost = f", 累计成本 ≈ ${st['cost_usd']:.4f}" if st["cost_usd"] else ""
+    log(f"   LLM 调用 {st['calls']} 次{cost}  [{llm.describe()}]")
 
 
 if __name__ == "__main__":

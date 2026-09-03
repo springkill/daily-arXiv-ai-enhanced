@@ -65,10 +65,15 @@ esac
 
 # ---- 3. Claude 两段式总结 + 打分排序 ----------------------------------------
 log "步骤3: Claude 总结与相关性排序..."
-( cd ai && python claude_enhance.py --data "../data/${today}.jsonl" )
+( cd ai && python local_enhance.py --data "../data/${today}.jsonl" )
 if [ $? -ne 0 ]; then log "❌ AI 增强失败"; exit 1; fi
 AI_FILE="data/${today}_AI_enhanced_${LANGUAGE}.jsonl"
 if [ ! -f "$AI_FILE" ]; then log "❌ 未生成增强文件 $AI_FILE"; exit 1; fi
+
+# ---- 3.5 研究趋势子方向打标 ------------------------------------------------
+log "步骤3.5: 趋势子方向打标..."
+python ai/trend_tagger.py --data "$AI_FILE" \
+  || log "⚠️ 趋势打标失败(不阻断当天日常,可稍后重跑)"
 
 # ---- 4. 转 Markdown ---------------------------------------------------------
 log "步骤4: 转 Markdown..."

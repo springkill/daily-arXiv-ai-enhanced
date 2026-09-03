@@ -24,3 +24,8 @@ package-lock.json
 yarn.lock
 .DS_Store
 package.json
+# 旧的一键审稿 JSON 缓存(已迁移到 var/store.sqlite3,保留规则以防老副本)
+data/.review-cache.json
+
+# 本机运行时数据(标记、审稿结果的 sqlite 库)。各人一份,不进 git。
+var/
